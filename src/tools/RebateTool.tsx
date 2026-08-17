@@ -242,7 +242,7 @@ export default function RebateTool() {
 
         {/* Results */}
         <div className="lg:col-span-2">
-          <div className="lg:sticky lg:top-6 space-y-5">
+          <div className="lg:sticky lg:top-32 space-y-5">
             <div className="rounded-xl bg-gradient-to-br from-albarakah-600 to-albarakah-800 text-white p-5 shadow-md">
               <p className="text-xs uppercase tracking-wide text-white/70">Rebate (Ibra’)</p>
               <p className="text-3xl font-bold tabular-nums mt-1">{formatMUR(result.rebateAmount)}</p>

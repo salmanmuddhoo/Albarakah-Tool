@@ -15,8 +15,8 @@ function Shell() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Brand + navigation */}
-      <header className="bg-albarakah-500 text-white">
+      {/* Brand + navigation — stays fixed at the top while scrolling */}
+      <header className="sticky top-0 z-30 bg-albarakah-500 text-white shadow-md">
         <div className="max-w-6xl mx-auto px-4 pt-5">
           <div className="flex items-center gap-3 pb-4">
             <div className="h-11 w-11 rounded-lg bg-white flex items-center justify-center overflow-hidden shadow-sm">

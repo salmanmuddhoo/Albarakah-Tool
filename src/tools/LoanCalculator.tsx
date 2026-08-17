@@ -227,7 +227,7 @@ export default function LoanCalculator() {
 
           {/* Results summary */}
           <div className="lg:col-span-2">
-            <div className="lg:sticky lg:top-6 space-y-5">
+            <div className="lg:sticky lg:top-32 space-y-5">
               {/* Monthly payment headline */}
               <div className="rounded-xl bg-gradient-to-br from-albarakah-600 to-albarakah-800 text-white p-5 shadow-md">
                 <p className="text-xs uppercase tracking-wide text-white/70">Monthly payment</p>
