@@ -38,9 +38,11 @@ export default function PasscodeGate({ children }: PasscodeGateProps) {
         className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8 border border-slate-200"
       >
         <div className="text-center mb-6">
-          <div className="mx-auto mb-3 h-12 w-12 rounded-xl bg-albarakah-500 flex items-center justify-center text-white font-bold text-lg">
-            A
-          </div>
+          <img
+            src="/logo-256.png"
+            alt="Al Barakah MCSL logo"
+            className="mx-auto mb-3 h-20 w-20 object-contain"
+          />
           <h1 className="text-lg font-semibold text-slate-800">Albarakah MCSL</h1>
           <p className="text-sm text-slate-500">Islamic Finance Staff Tools</p>
         </div>

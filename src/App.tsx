@@ -19,8 +19,12 @@ function Shell() {
       <header className="bg-albarakah-500 text-white">
         <div className="max-w-6xl mx-auto px-4 pt-5">
           <div className="flex items-center gap-3 pb-4">
-            <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center font-bold">
-              A
+            <div className="h-11 w-11 rounded-lg bg-white flex items-center justify-center overflow-hidden shadow-sm">
+              <img
+                src="/logo-256.png"
+                alt="Al Barakah MCSL logo"
+                className="h-full w-full object-contain p-0.5"
+              />
             </div>
             <div>
               <h1 className="text-lg font-semibold leading-tight">Albarakah MCSL</h1>
