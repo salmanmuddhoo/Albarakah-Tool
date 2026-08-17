@@ -18,21 +18,28 @@ interface FormState extends CalculatorInputs {
   insurancePaid: boolean;
 }
 
-const DEFAULT_STATE: FormState = {
-  memberName: '',
-  fileId: '',
-  principal: 900_000,
-  tenureYears: 7,
-  tiers: [
-    { durationYears: 3, ratePercent: 5 },
-    { durationYears: 4, ratePercent: 3 },
-  ],
-  profitMode: 'tiers',
-  flatTotalProfit: 243_000,
-  yearsElapsed: 3,
-  rebatePercent: 100,
-  insurancePaid: true,
-};
+/**
+ * Returns a fresh copy of the default (worked-example) state on every call, so
+ * Reset always yields a brand-new object with independent nested arrays — no
+ * shared references that could be mutated or cause a setState bail-out.
+ */
+function makeDefaultState(): FormState {
+  return {
+    memberName: '',
+    fileId: '',
+    principal: 900_000,
+    tenureYears: 7,
+    tiers: [
+      { durationYears: 3, ratePercent: 5 },
+      { durationYears: 4, ratePercent: 3 },
+    ],
+    profitMode: 'tiers',
+    flatTotalProfit: 243_000,
+    yearsElapsed: 3,
+    rebatePercent: 100,
+    insurancePaid: true,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Small presentational helpers
@@ -191,7 +198,7 @@ function Timeline({
 // Main calculator
 // ---------------------------------------------------------------------------
 function Calculator() {
-  const [state, setState] = useState<FormState>(DEFAULT_STATE);
+  const [state, setState] = useState<FormState>(makeDefaultState);
 
   const result = useMemo(() => calculate(state), [state]);
 
@@ -217,7 +224,7 @@ function Calculator() {
       tiers: s.tiers.length > 1 ? s.tiers.filter((_, i) => i !== index) : s.tiers,
     }));
 
-  const reset = () => setState(DEFAULT_STATE);
+  const reset = () => setState(makeDefaultState());
 
   const downloadPdf = () =>
     generateSettlementPdf({

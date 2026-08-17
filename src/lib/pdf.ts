@@ -29,19 +29,25 @@ const TEAL: [number, number, number] = [15, 118, 110];
 const DARK: [number, number, number] = [30, 41, 59];
 const LIGHT: [number, number, number] = [241, 245, 249];
 
-function safeFilenamePart(name: string): string {
-  return name
+/** Strip characters that are illegal in filenames, keeping spaces and hyphens. */
+function safeFilenamePart(value: string): string {
+  return value
     .trim()
-    .replace(/[^a-z0-9]+/gi, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 40);
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 60);
 }
 
-export function buildSettlementFilename(name: string): string {
-  const date = new Date().toISOString().slice(0, 10);
-  const part = safeFilenamePart(name);
-  const who = part ? part : 'member';
-  return `Albarakah_Settlement_${who}_${date}.pdf`;
+/**
+ * Build the download filename. Primary form is "<File ID> - Rebate"
+ * (e.g. "AB1002 - Rebate.pdf"); falls back to the member name, then a generic
+ * label, when no File ID is provided.
+ */
+export function buildSettlementFilename(fileId: string, name = ''): string {
+  const id = safeFilenamePart(fileId);
+  const who = safeFilenamePart(name);
+  const label = id || who;
+  return label ? `${label} - Rebate.pdf` : 'Rebate Statement.pdf';
 }
 
 export function generateSettlementPdf(payload: PdfPayload): void {
@@ -266,5 +272,5 @@ export function generateSettlementPdf(payload: PdfPayload): void {
     y,
   );
 
-  doc.save(buildSettlementFilename(member.name));
+  doc.save(buildSettlementFilename(member.fileId, member.name));
 }
