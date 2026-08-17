@@ -1,14 +1,47 @@
-# Albarakah MCSL — Early Settlement Rebate (Ibra') Calculator
+# Albarakah MCSL — Islamic Finance Staff Tools
 
-A small, standalone web app for Albarakah MCSL staff / IT Committee to calculate
-the early-settlement profit rebate (Ibra') owed to a member who pays off an
-Islamic financing product ahead of schedule, and to produce a shareable PDF
-settlement statement.
+A small, standalone web app for Albarakah MCSL staff / IT Committee. It bundles
+two single-purpose calculators, selectable from the top navigation:
 
-There is **no database, no member records, and no user accounts** — it is a
-single-purpose internal calculator. The only gate is a shared staff passcode.
+1. **Loan Calculator** — works out a member's monthly installment, the minimum
+   shares they must hold to qualify, and a full month-by-month schedule of
+   payments, exportable as a PDF.
+2. **Rebate tool** — calculates the early-settlement profit rebate (Ibra') owed
+   when a member pays off financing ahead of schedule, exportable as a PDF
+   settlement statement.
 
-## What it does
+There is **no database, no member records, and no user accounts** — these are
+single-purpose internal calculators. The only gate is a shared staff passcode.
+
+Both tools share the same flat-profit tier maths (`src/lib/calc.ts`): profit is
+charged on the original principal per rate tier, so the two tools stay perfectly
+consistent (e.g. the loan schedule's outstanding principal at any month equals
+the figure the rebate tool would quote for settling then).
+
+## Loan Calculator
+
+Given the financing amount, tenure, and profit-rate tiers (e.g. 7 years — first
+3 years @ 5%/yr, remaining 4 years @ 3%/yr), it computes:
+
+- **Total profit** = `principal × Σ(tier years × tier rate)`, and **total
+  payable** = principal + profit.
+- **Monthly installment**, with two selectable structures:
+  - **Equal monthly** — one fixed installment across the whole tenure
+    (`total payable ÷ months`). For the example: `1,143,000 ÷ 84 ≈ MUR 13,607.14`.
+  - **Stepped by tier** — principal repaid straight-line and profit charged on
+    the original principal at each month's tier rate, so the installment steps
+    down when the rate drops (example: `MUR 14,464.29`/mo for months 1–36, then
+    `MUR 12,964.29`/mo for months 37–84).
+- **Minimum shares requirement** — to qualify, a member must hold a minimum in
+  their shares account, a configurable fraction of the financing (default **one
+  third**). It shows the required amount and, if the member is short, exactly
+  **how much more they must add** (e.g. financing MUR 900,000 → requires
+  MUR 300,000; a member holding MUR 200,000 must add MUR 100,000).
+- **Full schedule of payments** — a month-by-month table (opening balance,
+  principal, profit, payment, closing balance) shown on screen and in the PDF.
+  PDF filename: `<File ID> - Loan Schedule.pdf`.
+
+## Rebate tool
 
 Given a financing's principal, tenure, and profit-rate tier structure, plus how
 many years a member has already paid, it computes:
@@ -95,22 +128,36 @@ The repo includes a `vercel.json` preconfigured for a Vite SPA.
 ```
 src/
   lib/
-    calc.ts        # core domain logic (pure, framework-free) — the rebate maths
-    calc.test.ts   # unit tests validating the worked example and edge cases
-    pdf.ts         # jsPDF settlement-statement generator
+    calc.ts        # shared tier/profit maths + rebate logic (pure, framework-free)
+    calc.test.ts   # rebate unit tests (worked example + edge cases)
+    loan.ts        # loan installments, amortization schedule, shares requirement
+    loan.test.ts   # loan unit tests (worked example + edge cases)
+    pdf.ts         # jsPDF rebate settlement-statement generator
+    loanPdf.ts     # jsPDF loan schedule-of-payments generator
   components/
     PasscodeGate.tsx
-  App.tsx          # the calculator UI (inputs + live results panel)
+    Toolbar.tsx    # per-tool title + Reset/Download actions
+    ui.tsx         # shared inputs, cards, tier builder
+  tools/
+    LoanCalculator.tsx  # "Loan Calculator" tab
+    RebateTool.tsx      # "Rebate tool" tab
+  App.tsx          # shell: passcode gate, brand bar, tab navigation
   main.tsx
 ```
 
-All calculation logic lives in `src/lib/calc.ts` and is fully unit-tested, so the
-domain maths can be verified independently of the UI.
+All calculation logic lives in `src/lib/calc.ts` and `src/lib/loan.ts` and is
+fully unit-tested, so the domain maths can be verified independently of the UI.
 
 ## Notes / not-yet-specified behaviour
 
-- **Insurance paid?** — captured as a checkbox and shown on the PDF. The business
-  rules for the "insurance not paid" case were not provided and are not yet
-  applied to the calculation; wire them into `calc.ts` when supplied.
+- **Insurance paid?** (rebate tool) — captured as a checkbox and shown on the
+  PDF. The business rules for the "insurance not paid" case were not provided and
+  are not yet applied to the calculation; wire them into `calc.ts` when supplied.
+- **Installment structure** (loan tool) — both an "equal monthly" and a
+  "stepped by tier" structure are provided, since the product convention wasn't
+  specified. Equal monthly is the default. Switch per product as needed.
+- **Shares requirement** is a percentage of the financing (default one third),
+  with the required amount rounded to the nearest rupee. Adjust the percentage
+  per product.
 - No member data is persisted anywhere — member name and file ID are used only
   for the on-screen record and the generated PDF.

@@ -42,7 +42,7 @@ export default function PasscodeGate({ children }: PasscodeGateProps) {
             A
           </div>
           <h1 className="text-lg font-semibold text-slate-800">Albarakah MCSL</h1>
-          <p className="text-sm text-slate-500">Early Settlement Rebate Calculator</p>
+          <p className="text-sm text-slate-500">Islamic Finance Staff Tools</p>
         </div>
 
         <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="passcode">

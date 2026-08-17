@@ -125,7 +125,7 @@ export function resolveTiers(tiers: RateTier[], tenureYears: number): ResolvedTi
  * is what makes remaining years match their *original position* in the tenure
  * rather than being counted fresh from the settlement date.
  */
-function profitForWindow(
+export function profitForWindow(
   resolvedTiers: ResolvedTier[],
   principal: number,
   windowStart: number,
