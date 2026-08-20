@@ -57,19 +57,21 @@ Select a product and term; enter the financing amount. It computes:
 
 - **Profit rate** = `ProfitRate(product, years)` from the table; **total profit** =
   `principal × rate`; **total payable** = principal + profit.
-- **Monthly installment** = `total payable ÷ (years × 12)` (equal flat‑Murabaha
-  installments — principal repaid straight‑line, profit spread evenly).
+- **Monthly installment** = `total payable ÷ (years × 12)` — **equal (level)**
+  installments across the whole term.
 - **Minimum shares requirement** — to qualify, a member must hold a minimum in
   their shares account: **one third (33.33%)** or **25%** of the financing,
   chosen from a dropdown. Shows the required amount and, if short, exactly **how
   much more they must add**.
 - **PRF (yearly insurance premium)** — shown as a column in the schedule. It is
-  1% of the amount remaining to repay, **capped at MUR 4,000/year**: year 1 at
-  the start of the financing, following years at each year-end. It is
+  1% of the amount remaining to repay at the start of the year, **capped at
+  MUR 4,000/year**. In the schedule it appears at **month 1** for year 1, then at
+  **month K×12** for each following year K (month 24, 36, 48, …). It is
   informational and does **not** change the loan balance. The total PRF over the
   term is shown too.
-- **Full schedule of payments** — month-by-month table (opening, principal,
-  profit, payment, closing, PRF), on screen and in the PDF
+- **Full schedule of payments** — month-by-month table whose **opening/closing
+  balance is the total amount payable** (capital + profit) reducing to zero, with
+  columns for capital, profit, payment and PRF. On screen and in the PDF
   (`<File ID> - Loan Schedule.pdf`).
 - **Documents checklist** — the generated PDF includes a loan-approval document
   checklist with tick boxes (ID, proof of address, payslip, …) for the officer.
@@ -83,25 +85,32 @@ served, and the rebate is the profit for the **unserved** years.
 
 - **Total profit** = `principal × ProfitRate(N)` for the full term N.
 - **Profit earned** (kept) = `principal × ProfitRate(k)` for the k years served.
-- **Unearned profit** (rebate‑eligible) = `principal × (ProfitRate(N) − ProfitRate(k))`
-  — equivalently, the sum of the marginal per‑year rates for years k+1…N.
-- **Rebate amount (Ibra')** — 100% of the unearned profit by default (full Ibra'),
-  with an adjustable 0–100% field for partial‑rebate products.
-- **Outstanding principal** — straight‑line, `principal × (N − k) / N`.
-- **PRF reconciliation** — the officer enters the **PRF actually paid**. The tool
-  shows the indicative PRF due for the years served; any shortfall is **added to
-  the amount to settle** (and reduces the net rebate to the member).
-- **Amount to pay to settle** = outstanding principal + profit still payable +
-  outstanding PRF.
+- **Unearned profit** (rebated in full, Ibra') = `principal × (ProfitRate(N) − ProfitRate(k))`.
+- **Total already paid** = `monthly installment × months served` (equal
+  installments). Because the installment is level, the member has paid capital
+  and profit at the average (straight‑line) rate.
+- **Outstanding capital** — remaining unpaid capital, `principal × (N − k) / N`.
+- **Profit still payable after rebate** — the profit that was *earned* for the
+  served years but not yet paid through the level installments
+  (`earned profit − profit paid`). With front‑loaded profit recognition this is
+  positive at early settlement.
+- **PRF reconciliation** — the officer enters the **PRF actually paid** (shown in
+  a prominent callout with the indicative PRF due). Any shortfall is **added to
+  the amount to settle**.
+- **Amount to pay to settle** = outstanding capital + profit still payable +
+  outstanding PRF = `remaining balance − rebate + outstanding PRF`.
 - A **per‑year rate breakdown** shows each year's marginal rate, flagged Paid or
   Rebated.
 
 ### Worked example (default form state)
 
-Product HGF (benchmark 5.5%), principal MUR 1,000,000, term 11 years, paid 8 years:
-total profit **MUR 400,000** (40%), profit earned **MUR 340,000** (8‑yr rate 34%),
-rebate = profit for years 9–11 = **MUR 60,000**, outstanding principal
-**MUR 272,727.27** (3/11), amount to settle **MUR 272,727.27**.
+Product HGF (benchmark 5.5%), principal MUR 1,000,000, term 10 years, paid 3 years
+(total profit **MUR 380,000** at 38%, payable MUR 1,380,000, level installment
+**MUR 11,500**): total already paid **MUR 414,000** (capital 300,000 + profit
+114,000), earned profit **MUR 165,000** (3‑yr rate 16.5%), rebate **MUR 215,000**,
+outstanding capital **MUR 700,000**, profit still payable **MUR 51,000**, PRF due
+**MUR 12,000** — amount to settle **MUR 763,000** (or MUR 751,000 if the PRF is up
+to date).
 
 ## Tech stack
 
@@ -187,12 +196,11 @@ domain maths can be verified independently of the UI.
 
 ## Notes / not-yet-specified behaviour
 
-- **Insurance paid?** (rebate tool) — captured as a checkbox and shown on the
-  PDF. The business rules for the "insurance not paid" case were not provided and
-  are not yet applied to the calculation; wire them into `rebate.ts` when supplied.
-- **Shares requirement** is a percentage of the financing (default one third),
-  with the required amount rounded to the nearest rupee. Adjust the percentage
-  per product.
+- **Insurance** is handled by the **PRF** (the yearly premium), so there is no
+  separate "insurance paid" checkbox — the rebate tool reconciles the actual PRF
+  paid against the indicative amount due.
+- **Shares requirement** is either one third (33.33%) or 25% of the financing
+  (dropdown), with the required amount rounded to the nearest rupee.
 - **Motor Vehicle Financing** benchmarks depend on the **vehicle's age** band
   (≤ 8 yrs vs 8–10 yrs), not the financing term. Each age band is listed as a
   separate product so staff pick the one matching the vehicle.

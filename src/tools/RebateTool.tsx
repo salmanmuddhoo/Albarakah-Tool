@@ -9,7 +9,6 @@ import { Toolbar } from '../components/Toolbar';
 interface FormState extends RebateInputs {
   memberName: string;
   fileId: string;
-  insurancePaid: boolean;
 }
 
 function makeDefaultState(): FormState {
@@ -20,9 +19,8 @@ function makeDefaultState(): FormState {
     years: 11,
     principal: 1_000_000,
     yearsPaid: 8,
-    rebatePercent: 100,
+    rebatePercent: 100, // full Ibra' — always 100%
     prfPaid: 0,
-    insurancePaid: true,
   };
 }
 
@@ -81,7 +79,6 @@ export default function RebateTool() {
       member: { name: state.memberName, fileId: state.fileId, product: product?.name ?? '' },
       inputs: state,
       result,
-      insurancePaid: state.insurancePaid,
     });
 
   return (
@@ -167,38 +164,28 @@ export default function RebateTool() {
                   ))}
                 </select>
               </Field>
-              <Field
-                label="Rebate given (% of unearned profit)"
-                hint="Default 100% — full Ibra’. Lower only for a partial-rebate product."
-              >
-                <NumberInput
-                  value={state.rebatePercent}
-                  onChange={(n) => set('rebatePercent', n)}
-                  min={0}
-                  max={100}
-                  suffix="%"
-                />
-              </Field>
-              <Field
-                label="PRF actually paid (MUR)"
-                hint={`Indicative PRF due for ${state.yearsPaid} yr: ${formatMUR(result.prfDue)}. Any shortfall is added to the settlement.`}
-              >
-                <NumberInput value={state.prfPaid} onChange={(n) => set('prfPaid', n)} min={0} />
-              </Field>
             </div>
 
-            <label className="mt-4 flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={state.insurancePaid}
-                onChange={(e) => set('insurancePaid', e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-albarakah-500 focus:ring-albarakah-500"
-              />
-              <span className="text-sm text-slate-700">Insurance paid?</span>
-              <span className="text-[11px] text-slate-400">
-                (if no, rules will be provided later)
-              </span>
-            </label>
+            {/* Prominent indicative PRF + PRF paid entry */}
+            <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                  Indicative PRF due ({state.yearsPaid} yr)
+                </span>
+                <span className="text-xl font-extrabold text-amber-700 tabular-nums">
+                  {formatMUR(result.prfDue)}
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-700/80 mt-1">
+                Insurance the member should have paid to date. Enter what was actually paid below —
+                any shortfall is added to the settlement amount.
+              </p>
+              <div className="mt-3">
+                <Field label="PRF actually paid (MUR)">
+                  <NumberInput value={state.prfPaid} onChange={(n) => set('prfPaid', n)} min={0} />
+                </Field>
+              </div>
+            </div>
           </Card>
 
           {/* Per-year profit rate breakdown */}
@@ -276,15 +263,29 @@ export default function RebateTool() {
                 sub={`${formatPercent(result.totalProfitPercent)} of principal`}
               />
               <ResultRow
+                label="Monthly installment"
+                value={formatMUR(result.monthlyInstallment)}
+              />
+              <ResultRow
+                label={`Total already paid (${result.monthsPaid} installments)`}
+                value={formatMUR(result.totalPaid)}
+                sub={`capital ${formatMUR(result.capitalPaid, false)} + profit ${formatMUR(result.profitPaid, false)}`}
+              />
+              <ResultRow label="Remaining balance to repay" value={formatMUR(result.remainingBalance)} />
+              <ResultRow
                 label={`Profit earned (${state.yearsPaid} yr served)`}
                 value={formatMUR(result.earnedProfit)}
               />
               <ResultRow label="Unearned profit" value={formatMUR(result.unearnedProfit)} />
-              <ResultRow label="Rebate amount" value={formatMUR(result.rebateAmount)} />
-              <ResultRow label="Outstanding principal" value={formatMUR(result.outstandingPrincipal)} />
+              <ResultRow label="Rebate amount (Ibra’)" value={formatMUR(result.rebateAmount)} />
+              <ResultRow
+                label="Outstanding capital (unpaid)"
+                value={formatMUR(result.outstandingPrincipal)}
+              />
               <ResultRow
                 label="Profit still payable after rebate"
                 value={formatMUR(result.profitStillPayable)}
+                sub="earned but not yet paid"
               />
               <ResultRow
                 label={`PRF due (${state.yearsPaid} yr, indicative)`}

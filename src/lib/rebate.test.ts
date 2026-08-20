@@ -6,73 +6,80 @@ import { calculateRebate, type RebateInputs } from './rebate.ts';
 const round = (n: number) => Math.round(n * 100) / 100;
 const near = (a: number, b: number, eps = 0.01) => Math.abs(a - b) < eps;
 
+// Worked example: HGF (5.5), 1,000,000 over 10 years (38% → payable 1,380,000),
+// settling after paying 3 years. Equal installments of 11,500/mo.
 const base: RebateInputs = {
-  productId: 'HGF', // benchmark 5.5
-  years: 11,
+  productId: 'HGF',
+  years: 10,
   principal: 1_000_000,
-  yearsPaid: 8,
+  yearsPaid: 3,
   rebatePercent: 100,
   prfPaid: 0,
 };
 
 test('total profit uses the official (rounded) full-term rate', () => {
   const r = calculateRebate(base);
-  // 11 years @ 5.5 benchmark → 40% (official, not 40.14%)
-  assert.equal(r.totalProfitPercent, 40);
-  assert.equal(round(r.totalProfit), 400_000);
+  assert.equal(r.totalProfitPercent, 38);
+  assert.equal(round(r.totalProfit), 380_000);
 });
 
-test('rebate = profit for the unserved years (rate(N) − rate(k))', () => {
+test('equal installments: total paid = monthly × months served', () => {
   const r = calculateRebate(base);
-  // 40% − 34% = 6% of principal
-  assert.equal(r.earnedProfitPercent, 34);
-  assert.equal(r.unearnedProfitPercent, 6);
-  assert.equal(round(r.rebateAmount), 60_000);
+  assert.equal(round(r.monthlyInstallment), 11_500); // 1,380,000 / 120
+  assert.equal(r.monthsPaid, 36);
+  assert.equal(round(r.totalPaid), 414_000); // 11,500 × 36
+  assert.equal(round(r.capitalPaid), 300_000);
+  assert.equal(round(r.profitPaid), 114_000);
+  assert.equal(round(r.remainingBalance), 966_000);
 });
 
-test('full rebate + PRF up to date: settle = outstanding principal', () => {
-  // Pay enough PRF so there is no outstanding PRF.
-  const r = calculateRebate({ ...base, prfPaid: 1_000_000 });
-  assert.equal(round(r.profitStillPayable), 0);
+test('rebate = unearned profit (profit for the unserved years)', () => {
+  const r = calculateRebate(base);
+  assert.equal(round(r.earnedProfit), 165_000); // 16.5% of 1,000,000
+  assert.equal(round(r.unearnedProfit), 215_000);
+  assert.equal(round(r.rebateAmount), 215_000);
+});
+
+test('settlement = outstanding capital + earned-but-unpaid profit (+ PRF)', () => {
+  const r = calculateRebate(base);
+  assert.equal(round(r.outstandingPrincipal), 700_000); // remaining capital
+  // Earned 165,000 but only 114,000 paid → 51,000 still payable after full rebate.
+  assert.equal(round(r.profitStillPayable), 51_000);
+  // PRF due for 3 years = 3 × 4,000 = 12,000; none paid → all outstanding.
+  assert.equal(round(r.prfDue), 12_000);
+  assert.equal(round(r.prfOutstanding), 12_000);
+  // 700,000 + 51,000 + 12,000
+  assert.equal(round(r.amountToSettle), 763_000);
+});
+
+test('paying the outstanding PRF removes it from the settlement', () => {
+  const r = calculateRebate({ ...base, prfPaid: 12_000 });
   assert.equal(round(r.prfOutstanding), 0);
-  assert.ok(near(r.outstandingPrincipal, 1_000_000 * (3 / 11), 0.5));
-  assert.ok(near(r.amountToSettle, r.outstandingPrincipal, 0.01));
+  assert.equal(round(r.amountToSettle), 751_000); // 700,000 + 51,000
 });
 
-test('unpaid PRF is added to the settlement and reduces the net rebate', () => {
-  // prfPaid = 0 → outstanding PRF = indicative due for the 8 years served.
+test('settlement reconciles: remaining balance − rebate + outstanding PRF', () => {
   const r = calculateRebate(base);
-  assert.ok(r.prfDue > 0);
-  assert.equal(round(r.prfOutstanding), round(r.prfDue));
-  assert.ok(near(r.amountToSettle, r.outstandingPrincipal + r.prfOutstanding, 0.01));
-  assert.ok(near(r.netRebate, r.rebateAmount - r.prfOutstanding, 0.01));
+  assert.ok(near(r.amountToSettle, r.remainingBalance - r.rebateAmount + r.prfOutstanding));
 });
 
-test('partial rebate (50%) leaves half the unearned profit payable', () => {
-  const r = calculateRebate({ ...base, rebatePercent: 50 });
-  assert.equal(round(r.rebateAmount), 30_000);
-  assert.equal(round(r.profitStillPayable), 30_000);
-});
-
-test('settling at full term gives no rebate', () => {
-  const r = calculateRebate({ ...base, yearsPaid: 11, prfPaid: 1_000_000 });
+test('settling at full term leaves nothing to pay', () => {
+  const r = calculateRebate({ ...base, yearsPaid: 10, prfPaid: 1_000_000 });
   assert.equal(round(r.rebateAmount), 0);
   assert.equal(round(r.outstandingPrincipal), 0);
+  assert.equal(round(r.profitStillPayable), 0);
   assert.equal(round(r.amountToSettle), 0);
 });
 
 test('per-year rows mark served years and the unserved ones sum to the rebate', () => {
   const r = calculateRebate(base);
-  assert.equal(r.yearRows.length, 11);
-  assert.equal(r.yearRows.filter((y) => y.served).length, 8);
-  const total = r.yearRows.reduce((s, y) => s + y.marginalAmount, 0);
-  assert.ok(near(total, r.totalProfit, 1));
+  assert.equal(r.yearRows.length, 10);
+  assert.equal(r.yearRows.filter((y) => y.served).length, 3);
   const unserved = r.yearRows.filter((y) => !y.served).reduce((s, y) => s + y.marginalAmount, 0);
   assert.ok(near(unserved, r.unearnedProfit, 1));
 });
 
-test('albarakah profit = earned profit with full rebate', () => {
+test('net rebate to member = rebate − outstanding PRF', () => {
   const r = calculateRebate(base);
-  assert.equal(round(r.albarakahProfit), round(r.earnedProfit));
-  assert.equal(round(r.albarakahProfit), 340_000);
+  assert.ok(near(r.netRebate, r.rebateAmount - r.prfOutstanding));
 });

@@ -89,24 +89,26 @@ export function calculateLoan(inputs: LoanInputs): LoanResult {
   const prfByYear = prfSchedule(totalPayable, years);
   const prfMonthMap = prfByMonth(totalPayable, years);
 
-  // Amortization schedule: straight-line principal + even profit split.
+  // Amortization schedule: equal monthly installments. The opening/closing
+  // balance is the TOTAL amount remaining to repay (capital + profit), so it
+  // starts at the total payable and reduces by the level installment each month.
   const schedule: ScheduleRow[] = [];
   const monthlyPrincipal = totalMonths > 0 ? principal / totalMonths : 0;
   const monthlyProfit = totalMonths > 0 ? totalProfit / totalMonths : 0;
-  let balance = principal;
+  let balance = totalPayable;
   for (let m = 1; m <= totalMonths; m++) {
     const openingBalance = balance;
-    let principalPortion = monthlyPrincipal;
-    if (m === totalMonths) principalPortion = openingBalance; // absorb rounding
-    let closingBalance = openingBalance - principalPortion;
+    let payment = monthlyPayment;
+    if (m === totalMonths) payment = openingBalance; // absorb rounding on the last row
+    let closingBalance = openingBalance - payment;
     if (Math.abs(closingBalance) < 0.005) closingBalance = 0;
     balance = closingBalance;
     schedule.push({
       month: m,
       openingBalance: round2(openingBalance),
-      principalPortion: round2(principalPortion),
+      principalPortion: round2(monthlyPrincipal),
       profitPortion: round2(monthlyProfit),
-      payment: round2(principalPortion + monthlyProfit),
+      payment: round2(payment),
       closingBalance: round2(closingBalance),
       prf: round2(prfMonthMap.get(m) ?? 0),
     });

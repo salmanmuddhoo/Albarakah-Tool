@@ -20,7 +20,6 @@ export interface PdfPayload {
   member: MemberDetails;
   inputs: RebateInputs;
   result: RebateResult;
-  insurancePaid: boolean;
 }
 
 const marginX = MARGIN_X;
@@ -31,7 +30,7 @@ export function buildSettlementFilename(fileId: string, name = ''): string {
 }
 
 export function generateSettlementPdf(payload: PdfPayload): void {
-  const { member, inputs, result, insurancePaid } = payload;
+  const { member, inputs, result } = payload;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = drawHeader(doc, 'Early Settlement Statement (Ibra’ Rebate)');
@@ -94,8 +93,12 @@ export function generateSettlementPdf(payload: PdfPayload): void {
     body: [
       ['Years already paid', `${inputs.yearsPaid} years`],
       ['Years remaining', `${result.yearsRemaining} years`],
-      ['Rebate given (of unearned profit)', formatPercent(inputs.rebatePercent)],
-      ['Insurance paid', insurancePaid ? 'Yes' : 'No'],
+      ['Monthly installment', formatMUR(result.monthlyInstallment)],
+      [
+        `Total already paid (${result.monthsPaid} installments)`,
+        formatMUR(result.totalPaid),
+      ],
+      ['Remaining balance to repay', formatMUR(result.remainingBalance)],
     ],
     margin: { left: marginX, right: marginX },
   });
@@ -147,8 +150,8 @@ export function generateSettlementPdf(payload: PdfPayload): void {
         `Rebate amount (Ibra’) — ${formatPercent(result.rebatePercentOfPrincipal)} of principal`,
         formatMUR(result.rebateAmount),
       ],
-      ['Profit still payable after rebate', formatMUR(result.profitStillPayable)],
-      ['Outstanding principal (remaining years)', formatMUR(result.outstandingPrincipal)],
+      ['Outstanding capital (unpaid)', formatMUR(result.outstandingPrincipal)],
+      ['Profit still payable after rebate (earned, unpaid)', formatMUR(result.profitStillPayable)],
     ],
     margin: { left: marginX, right: marginX },
   });

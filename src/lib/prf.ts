@@ -4,9 +4,11 @@
  * Rule:
  *   - Charged once per year of the term, at 1% of the outstanding amount to
  *     repay, capped at a maximum of MUR 4,000 per year.
- *   - Year 1 is measured at the START of the financing (on the full amount to
- *     repay). Every following year is measured at the END of the previous year
- *     cycle (on the balance remaining to repay at that point).
+ *   - The basis for year 1 is the full amount to repay; for every following year
+ *     it is the balance remaining to repay at the start of that year (i.e. the
+ *     previous year's end balance).
+ *   - In the monthly schedule the PRF is shown at month 1 for year 1, then at
+ *     the end of each subsequent year: year K at month K×12 (24, 36, 48, …).
  *   - The PRF does NOT reduce the loan balance — it is a separate premium.
  *
  * Because the balance remaining to repay after (j−1) whole years of equal
@@ -51,17 +53,19 @@ export function prfDueForYears(totalPayable: number, years: number, yearsPaid: n
     .reduce((s, r) => s + r.prf, 0);
 }
 
+/** The schedule month where a given year's PRF is shown. */
+export function prfMonthForYear(year: number): number {
+  return year === 1 ? 1 : year * 12;
+}
+
 /**
  * Map each year's PRF onto the month of the monthly schedule where it is shown:
- * year 1 → month 1 (beginning); year j ≥ 2 → month (j−1)×12 (end of year j−1).
+ * year 1 → month 1 (beginning); year K ≥ 2 → month K×12 (end of year K).
  * Returns a map of month number → PRF amount for that month.
  */
 export function prfByMonth(totalPayable: number, years: number): Map<number, number> {
   const map = new Map<number, number>();
   const rows = prfSchedule(totalPayable, years);
-  rows.forEach((r) => {
-    const month = r.year === 1 ? 1 : (r.year - 1) * 12;
-    map.set(month, r.prf);
-  });
+  rows.forEach((r) => map.set(prfMonthForYear(r.year), r.prf));
   return map;
 }

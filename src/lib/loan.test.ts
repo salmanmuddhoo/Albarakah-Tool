@@ -28,12 +28,14 @@ test('monthly payment = total payable / months', () => {
   assert.ok(near(r.monthlyPayment, 1_340_000 / 96, 0.01));
 });
 
-test('schedule amortizes principal to zero over the term', () => {
+test('schedule opening balance is the total payable and amortizes to zero', () => {
   const r = calculateLoan(base);
   assert.equal(r.schedule.length, 96);
+  // Opening balance of month 1 is the total amount payable (not the principal).
+  assert.equal(r.schedule[0].openingBalance, round(r.totalPayable));
   assert.equal(r.schedule[95].closingBalance, 0);
-  const principalSum = r.schedule.reduce((s, row) => s + row.principalPortion, 0);
-  assert.ok(Math.abs(principalSum - 1_000_000) < 1);
+  const paymentSum = r.schedule.reduce((s, row) => s + row.payment, 0);
+  assert.ok(Math.abs(paymentSum - r.totalPayable) < 1);
 });
 
 test('MVF benchmark comes from the vehicle-age band, independent of term', () => {
@@ -58,15 +60,16 @@ test('shares requirement met when member holds enough', () => {
   assert.equal(r.sharesShortfall, 0);
 });
 
-test('PRF: one row per year, year 1 on month 1, capped at 4,000', () => {
+test('PRF: year 1 at month 1, year 2 at month 24, capped at 4,000', () => {
   // 1,000,000 over 10 years @ 38% → payable 1,380,000 (matches the example).
   const r = calculateLoan({ ...base, productId: 'HGF', years: 10 });
   assert.equal(round(r.totalPayable), 1_380_000);
   assert.equal(r.prfByYear.length, 10);
   assert.equal(r.prfByYear[0].prf, 4_000); // capped
-  assert.equal(r.schedule[0].prf, 4_000); // month 1
-  assert.equal(r.schedule[11].prf, 4_000); // month 12 = end of year 1
-  assert.equal(r.schedule[5].prf, 0); // a non-PRF month
+  assert.equal(r.schedule[0].prf, 4_000); // month 1 = year 1
+  assert.equal(r.schedule[11].prf, 0); // month 12 has NO prf
+  assert.equal(r.schedule[23].prf, 4_000); // month 24 = year 2
+  assert.equal(r.schedule[35].prf, 4_000); // month 36 = year 3
   assert.equal(round(r.totalPrf), 36_140);
 });
 

@@ -50,7 +50,17 @@ export interface RebateResult {
   rebateAmount: number;
   rebatePercentOfPrincipal: number;
 
+  // Amount already paid (equal monthly installments)
+  monthlyInstallment: number;
+  monthsPaid: number;
+  totalPaid: number;
+  capitalPaid: number;
+  profitPaid: number;
+  /** Total remaining to repay before the rebate (total payable − total paid). */
+  remainingBalance: number;
+
   profitStillPayable: number;
+  /** Remaining (unpaid) capital. */
   outstandingPrincipal: number;
 
   // PRF (yearly insurance premium)
@@ -92,13 +102,25 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
 
   const rebateAmount = unearnedProfit * (rebatePercent / 100);
   const rebatePercentOfPrincipal = principal > 0 ? (rebateAmount / principal) * 100 : 0;
-  const profitStillPayable = unearnedProfit - rebateAmount;
 
-  const outstandingPrincipal = years > 0 ? principal * (yearsRemaining / years) : 0;
+  // Equal monthly installments already paid. Because the installment is level,
+  // the member has paid capital and profit at the average (straight-line) rate.
+  const totalPayable = principal + totalProfit;
+  const totalMonths = Math.max(0, years * 12);
+  const monthsPaid = yearsPaid * 12;
+  const monthlyInstallment = totalMonths > 0 ? totalPayable / totalMonths : 0;
+  const totalPaid = monthlyInstallment * monthsPaid;
+  const capitalPaid = years > 0 ? principal * (yearsPaid / years) : 0;
+  const profitPaid = years > 0 ? totalProfit * (yearsPaid / years) : 0;
+  const remainingBalance = totalPayable - totalPaid;
+
+  // Remaining (unpaid) capital, and the profit still owed after the rebate.
+  const outstandingPrincipal = principal - capitalPaid;
+  const remainingProfitUnpaid = totalProfit - profitPaid;
+  const profitStillPayable = Math.max(0, remainingProfitUnpaid - rebateAmount);
 
   // PRF: the member must be up to date on PRF for the years served to receive
   // the rebate. Any shortfall is added to the amount to settle.
-  const totalPayable = principal + totalProfit;
   const prfDue = prfDueForYears(totalPayable, years, yearsPaid);
   const prfPaid = Math.max(0, inputs.prfPaid || 0);
   const prfOutstanding = Math.max(0, prfDue - prfPaid);
@@ -129,6 +151,12 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
     unearnedProfit,
     rebateAmount,
     rebatePercentOfPrincipal,
+    monthlyInstallment,
+    monthsPaid,
+    totalPaid,
+    capitalPaid,
+    profitPaid,
+    remainingBalance,
     profitStillPayable,
     outstandingPrincipal,
     prfDue,
