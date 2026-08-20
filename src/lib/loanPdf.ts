@@ -3,8 +3,8 @@
  */
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatMUR, formatPercent, type RateTier } from './calc';
-import { type LoanResult, type InstallmentType } from './loan';
+import { formatMUR, formatPercent } from './format';
+import { type LoanResult } from './loan';
 
 const TEAL: [number, number, number] = [15, 118, 110];
 const DARK: [number, number, number] = [30, 41, 59];
@@ -13,9 +13,7 @@ const LIGHT: [number, number, number] = [241, 245, 249];
 export interface LoanPdfPayload {
   member: { name: string; fileId: string; product: string };
   principal: number;
-  tenureYears: number;
-  tiers: RateTier[];
-  installmentType: InstallmentType;
+  years: number;
   currentShares: number;
   shareRatioPercent: number;
   result: LoanResult;
@@ -88,51 +86,23 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   doc.text('Financing Summary', marginX, y);
   y += 6;
 
-  const tierText = payload.tiers
-    .map((t, i) =>
-      i === payload.tiers.length - 1
-        ? `then ${formatPercent(t.ratePercent)}/yr for the remaining years`
-        : `${t.durationYears} yr @ ${formatPercent(t.ratePercent)}/yr`,
-    )
-    .join(', ');
-
   autoTable(doc, {
     startY: y,
     theme: 'plain',
     styles: { fontSize: 10, cellPadding: 3, textColor: DARK },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 200 }, 1: { cellWidth: 'auto' } },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 220 }, 1: { cellWidth: 'auto' } },
     body: [
       ['Principal (financing amount)', formatMUR(payload.principal)],
-      ['Tenure', `${payload.tenureYears} years (${result.totalMonths} months)`],
-      ['Profit rate tiers', tierText],
+      ['Term', `${payload.years} years (${result.totalMonths} months)`],
+      ['Benchmark rate', `${formatPercent(result.benchmark)}/yr`],
       [
-        'Total profit',
-        `${formatMUR(result.totalProfit)} (${formatPercent(result.totalProfitPercentOfPrincipal)})`,
+        'Profit rate',
+        `${formatPercent(result.profitRatePercent)} of principal`,
       ],
+      ['Total profit', formatMUR(result.totalProfit)],
       ['Total amount payable', formatMUR(result.totalPayable)],
-      [
-        'Installment structure',
-        payload.installmentType === 'equal' ? 'Equal monthly installment' : 'Stepped by rate tier',
-      ],
+      ['Monthly installment', `${formatMUR(result.monthlyPayment)} / month`],
     ],
-    margin: { left: marginX, right: marginX },
-  });
-  // @ts-expect-error runtime property
-  y = doc.lastAutoTable.finalY + 10;
-
-  // Monthly payment segments
-  const segRows = result.segments.map((s) => [
-    result.segments.length === 1 ? `Months ${s.fromMonth}–${s.toMonth}` : `Months ${s.fromMonth}–${s.toMonth} (@ ${formatPercent(s.ratePercent)}/yr)`,
-    `${formatMUR(s.payment)} / month`,
-  ]);
-  autoTable(doc, {
-    startY: y,
-    head: [['Monthly payment', 'Amount']],
-    body: segRows,
-    theme: 'striped',
-    headStyles: { fillColor: TEAL, textColor: 255, fontSize: 9 },
-    styles: { fontSize: 9, cellPadding: 4, textColor: DARK },
-    alternateRowStyles: { fillColor: LIGHT },
     margin: { left: marginX, right: marginX },
   });
   // @ts-expect-error runtime property

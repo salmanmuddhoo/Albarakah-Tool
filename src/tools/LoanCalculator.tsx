@@ -1,41 +1,33 @@
 import { useMemo, useState } from 'react';
-import { formatMUR, formatPercent, type RateTier } from '../lib/calc';
-import { calculateLoan, type InstallmentType, type LoanInputs } from '../lib/loan';
+import { formatMUR, formatPercent } from '../lib/format';
+import { calculateLoan, type LoanInputs } from '../lib/loan';
+import { PRODUCTS, getProduct } from '../lib/profitTable';
 import { generateLoanPdf } from '../lib/loanPdf';
-import { Card, Field, NumberInput, TextInput, ResultRow, TierBuilder, inputCls } from '../components/ui';
+import { Card, Field, NumberInput, TextInput, ResultRow, inputCls } from '../components/ui';
 import { Toolbar } from '../components/Toolbar';
 
 interface FormState extends LoanInputs {
   memberName: string;
   fileId: string;
-  product: string;
 }
 
-const PRODUCTS = [
-  'Murabaha',
-  'Ijarah',
-  'Diminishing Musharakah',
-  'Vehicle financing',
-  'Home financing',
-  'Other',
-];
-
-/** Fresh default state (worked example) on every call, for a clean Reset. */
 function makeDefaultState(): FormState {
   return {
     memberName: '',
     fileId: '',
-    product: 'Murabaha',
-    principal: 900_000,
-    tenureYears: 7,
-    tiers: [
-      { durationYears: 3, ratePercent: 5 },
-      { durationYears: 4, ratePercent: 3 },
-    ],
-    installmentType: 'equal',
+    productId: 'HGF',
+    years: 8,
+    principal: 1_000_000,
     currentShares: 200_000,
     shareRatioPercent: 33.3333,
   };
+}
+
+/** Clamp a year to a product's allowed range. */
+function clampYears(productId: string, years: number): number {
+  const p = getProduct(productId);
+  if (!p) return years;
+  return Math.min(Math.max(Math.round(years), p.minYears), p.maxYears);
 }
 
 export default function LoanCalculator() {
@@ -45,45 +37,30 @@ export default function LoanCalculator() {
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setState((s) => ({ ...s, [key]: val }));
 
-  const updateTier = (index: number, patch: Partial<RateTier>) =>
-    setState((s) => ({
-      ...s,
-      tiers: s.tiers.map((t, i) => (i === index ? { ...t, ...patch } : t)),
-    }));
-  const addTier = () =>
-    setState((s) => ({ ...s, tiers: [...s.tiers, { durationYears: 1, ratePercent: 3 }] }));
-  const removeTier = (index: number) =>
-    setState((s) => ({
-      ...s,
-      tiers: s.tiers.length > 1 ? s.tiers.filter((_, i) => i !== index) : s.tiers,
-    }));
+  const product = getProduct(state.productId);
+  const allowedYears = product
+    ? Array.from({ length: product.maxYears - product.minYears + 1 }, (_, i) => product.minYears + i)
+    : [];
+
+  const onProductChange = (productId: string) =>
+    setState((s) => ({ ...s, productId, years: clampYears(productId, s.years) }));
 
   const reset = () => setState(makeDefaultState());
   const downloadPdf = () =>
     generateLoanPdf({
-      member: { name: state.memberName, fileId: state.fileId, product: state.product },
+      member: { name: state.memberName, fileId: state.fileId, product: product?.name ?? '' },
       principal: state.principal,
-      tenureYears: state.tenureYears,
-      tiers: state.tiers,
-      installmentType: state.installmentType,
+      years: state.years,
       currentShares: state.currentShares,
       shareRatioPercent: state.shareRatioPercent,
       result,
     });
 
-  const lastTierDuration = (() => {
-    // Effective duration of the last tier = tenure − sum of earlier tiers.
-    const earlier = state.tiers.slice(0, -1).reduce((s, t) => s + Math.max(0, t.durationYears), 0);
-    return Math.max(0, state.tenureYears - earlier);
-  })();
-
-  const setInstallment = (t: InstallmentType) => set('installmentType', t);
-
   return (
     <>
       <Toolbar
         title="Loan Calculator"
-        subtitle="Monthly installments, shares requirement and full payment schedule."
+        subtitle="Select a product and term — monthly installment, shares requirement and full schedule."
         onReset={reset}
         onDownload={downloadPdf}
         downloadLabel="Download schedule PDF"
@@ -109,15 +86,32 @@ export default function LoanCalculator() {
                     placeholder="e.g. AB0001"
                   />
                 </Field>
-                <Field label="Financing product">
+                <Field label="Financing product" hint={product?.note}>
                   <select
-                    value={state.product}
-                    onChange={(e) => set('product', e.target.value)}
+                    value={state.productId}
+                    onChange={(e) => onProductChange(e.target.value)}
                     className={inputCls}
                   >
-                    {PRODUCTS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
+                    {['Murabahah', 'Istisnaa', 'Service Ijarah'].map((cat) => (
+                      <optgroup key={cat} label={cat}>
+                        {PRODUCTS.filter((p) => p.category === cat).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Number of years" hint={product ? `${product.minYears}–${product.maxYears} years for this product` : undefined}>
+                  <select
+                    value={state.years}
+                    onChange={(e) => set('years', Number(e.target.value))}
+                    className={inputCls}
+                  >
+                    {allowedYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y} {y === 1 ? 'year' : 'years'}
                       </option>
                     ))}
                   </select>
@@ -126,35 +120,22 @@ export default function LoanCalculator() {
             </Card>
 
             <Card title="Financing Details" step="2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <Field label="Financing amount / principal (MUR)">
-                  <NumberInput value={state.principal} onChange={(n) => set('principal', n)} min={0} />
-                </Field>
-                <Field label="Tenure (years)">
-                  <NumberInput
-                    value={state.tenureYears}
-                    onChange={(n) => set('tenureYears', n)}
-                    min={0}
-                    suffix="yrs"
-                  />
-                </Field>
-              </div>
+              <Field label="Financing amount / principal (MUR)">
+                <NumberInput value={state.principal} onChange={(n) => set('principal', n)} min={0} />
+              </Field>
 
-              <span className="block text-xs font-medium text-slate-600 mb-2">
-                Profit rate tiers
-              </span>
-              <TierBuilder
-                tiers={state.tiers}
-                lastEffectiveDuration={lastTierDuration}
-                onUpdate={updateTier}
-                onAdd={addTier}
-                onRemove={removeTier}
-              />
-
-              <div className="mt-4 rounded-lg bg-albarakah-50 border border-albarakah-100 px-4 py-3">
+              <div className="mt-4 rounded-lg bg-albarakah-50 border border-albarakah-100 px-4 py-3 space-y-1">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-medium text-albarakah-700">Total profit</span>
+                  <span className="text-xs font-medium text-albarakah-700">
+                    Profit rate ({formatPercent(result.benchmark)}/yr benchmark × {state.years} yr)
+                  </span>
                   <span className="text-sm font-bold text-albarakah-700 tabular-nums">
+                    {formatPercent(result.profitRatePercent)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] text-albarakah-600">Total profit</span>
+                  <span className="text-[11px] font-semibold text-albarakah-600 tabular-nums">
                     {formatMUR(result.totalProfit)}
                   </span>
                 </div>
@@ -164,39 +145,6 @@ export default function LoanCalculator() {
                     {formatMUR(result.totalPayable)}
                   </span>
                 </div>
-              </div>
-
-              <div className="mt-4">
-                <span className="block text-xs font-medium text-slate-600 mb-2">
-                  Installment structure
-                </span>
-                <div className="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50">
-                  <button
-                    onClick={() => setInstallment('equal')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                      state.installmentType === 'equal'
-                        ? 'bg-albarakah-500 text-white'
-                        : 'text-slate-600'
-                    }`}
-                  >
-                    Equal monthly
-                  </button>
-                  <button
-                    onClick={() => setInstallment('stepped')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                      state.installmentType === 'stepped'
-                        ? 'bg-albarakah-500 text-white'
-                        : 'text-slate-600'
-                    }`}
-                  >
-                    Stepped by tier
-                  </button>
-                </div>
-                <p className="mt-2 text-[11px] text-slate-400">
-                  {state.installmentType === 'equal'
-                    ? 'One fixed installment across the whole tenure (total payable ÷ months).'
-                    : 'Principal repaid straight-line; installment steps down when the rate tier changes.'}
-                </p>
               </div>
             </Card>
 
@@ -225,42 +173,20 @@ export default function LoanCalculator() {
             </Card>
           </div>
 
-          {/* Results summary */}
+          {/* Results */}
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-32 space-y-5">
-              {/* Monthly payment headline */}
               <div className="rounded-xl bg-gradient-to-br from-albarakah-600 to-albarakah-800 text-white p-5 shadow-md">
-                <p className="text-xs uppercase tracking-wide text-white/70">Monthly payment</p>
-                {result.segments.length === 1 ? (
-                  <p className="text-4xl font-extrabold tabular-nums mt-1">
-                    {formatMUR(result.firstPayment)}
-                  </p>
-                ) : (
-                  <div className="mt-1 space-y-1">
-                    {result.segments.map((s, i) => (
-                      <div key={i} className="flex items-baseline justify-between">
-                        <span className="text-xs text-white/80">
-                          Months {s.fromMonth}–{s.toMonth}
-                        </span>
-                        <span className="text-xl font-bold tabular-nums">
-                          {formatMUR(s.payment)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-white/80 mt-2">
-                  over {result.totalMonths} months
-                  {result.segments.length > 1 && ' · steps down by tier'}
+                <p className="text-xs uppercase tracking-wide text-white/70">Monthly installment</p>
+                <p className="text-4xl font-extrabold tabular-nums mt-1">
+                  {formatMUR(result.monthlyPayment)}
                 </p>
+                <p className="text-xs text-white/80 mt-2">over {result.totalMonths} months</p>
               </div>
 
-              {/* Shares status */}
               <div
                 className={`rounded-xl border-2 p-5 shadow-md ${
-                  result.sharesMet
-                    ? 'bg-white border-albarakah-500'
-                    : 'bg-amber-50 border-amber-400'
+                  result.sharesMet ? 'bg-white border-albarakah-500' : 'bg-amber-50 border-amber-400'
                 }`}
               >
                 <p className="text-xs uppercase tracking-wide text-slate-500">
@@ -288,21 +214,18 @@ export default function LoanCalculator() {
                 )}
               </div>
 
-              {/* Breakdown */}
               <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
                 <p className="text-xs font-semibold text-slate-600 mb-2">Breakdown</p>
                 <ResultRow label="Financing amount" value={formatMUR(state.principal)} />
+                <ResultRow label="Benchmark rate" value={`${formatPercent(result.benchmark)}/yr`} />
                 <ResultRow
                   label="Total profit"
                   value={formatMUR(result.totalProfit)}
-                  sub={`${formatPercent(result.totalProfitPercentOfPrincipal)} of principal`}
+                  sub={`${formatPercent(result.profitRatePercent)} of principal`}
                 />
                 <ResultRow label="Total amount payable" value={formatMUR(result.totalPayable)} />
                 <ResultRow label="Number of installments" value={`${result.totalMonths} months`} />
-                <ResultRow
-                  label="Average monthly payment"
-                  value={formatMUR(result.averageMonthlyPayment)}
-                />
+                <ResultRow label="Monthly installment" value={formatMUR(result.monthlyPayment)} />
               </div>
 
               <button
@@ -346,7 +269,8 @@ export default function LoanCalculator() {
             </table>
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
-            All amounts in MUR. Profit is charged on the original principal per rate tier.
+            All amounts in MUR. Equal monthly installments — principal repaid straight-line, profit
+            spread evenly across the term.
           </p>
         </Card>
       </main>

@@ -13,66 +13,77 @@ two single-purpose calculators, selectable from the top navigation:
 There is **no database, no member records, and no user accounts** — these are
 single-purpose internal calculators. The only gate is a shared staff passcode.
 
-Both tools share the same flat-profit tier maths (`src/lib/calc.ts`): profit is
-charged on the original principal per rate tier, so the two tools stay perfectly
-consistent (e.g. the loan schedule's outstanding principal at any month equals
-the figure the rebate tool would quote for settling then).
+## The profit table (core model)
+
+Both tools are driven by the society's profit table (`src/lib/profitTable.ts`).
+The total profit rate charged on a financing depends on the **product** (its
+benchmark flat rate per year) and the **number of years**, and is **not linear** —
+the flat rate is geometrically reduced for tenures beyond 3 years:
+
+```
+FlatRate(n)      = benchmark × n
+RelativeRatio(n) = 1                for n ≤ 3
+                 = 0.95^(n − 3)     for n > 3     (geometric decrease)
+ProfitRate(n)    = FlatRate(n) × RelativeRatio(n)   (percent of principal)
+```
+
+This reproduces every value in the society's July-2024 profit table exactly
+(verified against all products in `profitTable.test.ts`). Examples: group‑1
+benchmark 5.5 → 8 years = **34.05%**, 11 years = **40.14%**; MVF 8<Yrs≤10
+benchmark 6.5 → 10 years = **45.39%**.
+
+### Products and benchmarks
+
+| Benchmark | Products | Years |
+| --- | --- | --- |
+| 5.5% | Murabahah HGF / REF / CF / MCF · Istisnaa HF · Service Ijarah ATF / UF / WF / EF | 1–15 |
+| 6.0% → 6.5% | Murabahah MVF — Personal Use (6.0% ≤8 yrs; 6.5% for 8<yrs≤10) | 1–10 |
+| 6.5% → 7.5% | Murabahah MVF — Trade / Taxis, Vans, Lorries (6.5% ≤8 yrs; 7.5% for 8<yrs≤10) | 1–10 |
+| 7.5% | Murabahah Trade Financing | 1–15 |
+| 8.5% | Murabahah Office / Apartment / Business Property | 1–15 |
+
+Staff simply **select the product and the number of years** and the profit is
+computed from the table. Years are whole years.
 
 ## Loan Calculator
 
-Given the financing amount, tenure, and profit-rate tiers (e.g. 7 years — first
-3 years @ 5%/yr, remaining 4 years @ 3%/yr), it computes:
+Select a product and term; enter the financing amount. It computes:
 
-- **Total profit** = `principal × Σ(tier years × tier rate)`, and **total
-  payable** = principal + profit.
-- **Monthly installment**, with two selectable structures:
-  - **Equal monthly** — one fixed installment across the whole tenure
-    (`total payable ÷ months`). For the example: `1,143,000 ÷ 84 ≈ MUR 13,607.14`.
-  - **Stepped by tier** — principal repaid straight-line and profit charged on
-    the original principal at each month's tier rate, so the installment steps
-    down when the rate drops (example: `MUR 14,464.29`/mo for months 1–36, then
-    `MUR 12,964.29`/mo for months 37–84).
+- **Profit rate** = `ProfitRate(product, years)` from the table; **total profit** =
+  `principal × rate`; **total payable** = principal + profit.
+- **Monthly installment** = `total payable ÷ (years × 12)` (equal flat‑Murabaha
+  installments — principal repaid straight‑line, profit spread evenly).
 - **Minimum shares requirement** — to qualify, a member must hold a minimum in
   their shares account, a configurable fraction of the financing (default **one
-  third**). It shows the required amount and, if the member is short, exactly
-  **how much more they must add** (e.g. financing MUR 900,000 → requires
-  MUR 300,000; a member holding MUR 200,000 must add MUR 100,000).
-- **Full schedule of payments** — a month-by-month table (opening balance,
-  principal, profit, payment, closing balance) shown on screen and in the PDF.
-  PDF filename: `<File ID> - Loan Schedule.pdf`.
+  third**). Shows the required amount and, if short, exactly **how much more they
+  must add** (e.g. financing MUR 900,000 → requires MUR 300,000; holding
+  MUR 200,000 → must add MUR 100,000).
+- **Full schedule of payments** — month-by-month table (opening, principal,
+  profit, payment, closing), on screen and in the PDF (`<File ID> - Loan Schedule.pdf`).
 
 ## Rebate tool
 
-Given a financing's principal, tenure, and profit-rate tier structure, plus how
-many years a member has already paid, it computes:
+Select the product, original term and **years already paid**. Early settlement
+uses the profit table directly: the society keeps the profit for the years
+served, and the rebate is the profit for the **unserved** years.
 
-- **Total profit** over the full tenure (from the rate tiers).
-- **Remaining (unearned) profit** — matched to the *original tier positions* of
-  the remaining years, not a blended rate.
-- **Rebate amount (Ibra')** — 100% of remaining profit by default (full Ibra',
-  the norm), with an adjustable 0–100% field for partial-rebate products.
-- **Outstanding principal** — straight-line, `principal × (yearsRemaining / tenure)`.
-- **Amount to pay to settle the account** — the headline figure staff quote.
-- **Profit made by Albarakah** on the financing after the rebate.
+- **Total profit** = `principal × ProfitRate(N)` for the full term N.
+- **Profit earned** (kept) = `principal × ProfitRate(k)` for the k years served.
+- **Unearned profit** (rebate‑eligible) = `principal × (ProfitRate(N) − ProfitRate(k))`
+  — equivalently, the sum of the marginal per‑year rates for years k+1…N.
+- **Rebate amount (Ibra')** — 100% of the unearned profit by default (full Ibra'),
+  with an adjustable 0–100% field for partial‑rebate products.
+- **Outstanding principal** — straight‑line, `principal × (N − k) / N`.
+- **Amount to pay to settle** = outstanding principal + profit still payable.
+- A **per‑year rate breakdown** shows each year's marginal rate, flagged Paid or
+  Rebated.
 
-### Worked example (used as the default form state)
+### Worked example (default form state)
 
-| Input | Value |
-| --- | --- |
-| Principal | MUR 900,000 |
-| Tenure | 7 years |
-| Rate tiers | Years 1–3 @ 5%/yr, Years 4–7 @ 3%/yr |
-| Years paid | 3 |
-
-Produces: total profit **MUR 243,000** (27%), remaining profit **MUR 108,000**
-(the remaining 4 years fall entirely in the 3% tier — `900,000 × 4 × 3%`), full
-rebate **MUR 108,000**, outstanding principal **≈ MUR 514,286**, and an amount to
-settle of **≈ MUR 514,286**.
-
-There is also a **flat total-profit** input mode: enter a known total profit
-figure directly and the remaining profit is estimated straight-line
-(proportional to years remaining ÷ tenure). This mode is clearly labelled as an
-approximation because it ignores the tier shape.
+Product HGF (benchmark 5.5%), principal MUR 1,000,000, term 11 years, paid 8 years:
+total profit **MUR 401,369.36** (40.14%), profit earned **MUR 340,463.61** (8‑yr
+rate 34.05%), rebate = profit for years 9–11 = **MUR 60,905.75**, outstanding
+principal **MUR 272,727.27** (3/11), amount to settle **MUR 272,727.27**.
 
 ## Tech stack
 
@@ -128,36 +139,40 @@ The repo includes a `vercel.json` preconfigured for a Vite SPA.
 ```
 src/
   lib/
-    calc.ts        # shared tier/profit maths + rebate logic (pure, framework-free)
-    calc.test.ts   # rebate unit tests (worked example + edge cases)
-    loan.ts        # loan installments, amortization schedule, shares requirement
-    loan.test.ts   # loan unit tests (worked example + edge cases)
-    pdf.ts         # jsPDF rebate settlement-statement generator
-    loanPdf.ts     # jsPDF loan schedule-of-payments generator
+    profitTable.ts      # products, benchmarks, and the profit-rate formula
+    profitTable.test.ts # validates the formula against the society's table
+    rebate.ts           # early-settlement rebate logic
+    rebate.test.ts      # rebate unit tests (worked example + edge cases)
+    loan.ts             # loan installments, schedule, shares requirement
+    loan.test.ts        # loan unit tests
+    format.ts           # shared MUR / percent formatting
+    pdf.ts              # jsPDF rebate settlement-statement generator
+    loanPdf.ts          # jsPDF loan schedule-of-payments generator
   components/
     PasscodeGate.tsx
-    Toolbar.tsx    # per-tool title + Reset/Download actions
-    ui.tsx         # shared inputs, cards, tier builder
+    Toolbar.tsx         # per-tool title + Reset/Download actions
+    ui.tsx              # shared inputs, cards, result rows
   tools/
     LoanCalculator.tsx  # "Loan Calculator" tab
     RebateTool.tsx      # "Rebate tool" tab
-  App.tsx          # shell: passcode gate, brand bar, tab navigation
+  App.tsx               # shell: passcode gate, brand bar, tab navigation
   main.tsx
 ```
 
-All calculation logic lives in `src/lib/calc.ts` and `src/lib/loan.ts` and is
-fully unit-tested, so the domain maths can be verified independently of the UI.
+The profit model lives in `src/lib/profitTable.ts`, with the rebate and loan
+logic in `rebate.ts` and `loan.ts` — all pure and fully unit-tested, so the
+domain maths can be verified independently of the UI.
 
 ## Notes / not-yet-specified behaviour
 
 - **Insurance paid?** (rebate tool) — captured as a checkbox and shown on the
   PDF. The business rules for the "insurance not paid" case were not provided and
-  are not yet applied to the calculation; wire them into `calc.ts` when supplied.
-- **Installment structure** (loan tool) — both an "equal monthly" and a
-  "stepped by tier" structure are provided, since the product convention wasn't
-  specified. Equal monthly is the default. Switch per product as needed.
+  are not yet applied to the calculation; wire them into `rebate.ts` when supplied.
 - **Shares requirement** is a percentage of the financing (default one third),
   with the required amount rounded to the nearest rupee. Adjust the percentage
   per product.
+- **Motor Vehicle Financing** benchmarks step up for the 8 < years ≤ 10 band
+  (per the profit table); the app selects the right benchmark automatically from
+  the number of years.
 - No member data is persisted anywhere — member name and file ID are used only
   for the on-screen record and the generated PDF.

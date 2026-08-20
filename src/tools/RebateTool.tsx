@@ -1,46 +1,40 @@
 import { useMemo, useState } from 'react';
-import {
-  calculate,
-  formatMUR,
-  formatPercent,
-  type CalculatorInputs,
-  type RateTier,
-} from '../lib/calc';
+import { formatMUR, formatPercent } from '../lib/format';
+import { calculateRebate, type RebateInputs } from '../lib/rebate';
+import { PRODUCTS, getProduct } from '../lib/profitTable';
 import { generateSettlementPdf } from '../lib/pdf';
-import { Card, Field, NumberInput, TextInput, ResultRow, TierBuilder } from '../components/ui';
+import { Card, Field, NumberInput, TextInput, ResultRow, inputCls } from '../components/ui';
 import { Toolbar } from '../components/Toolbar';
 
-interface FormState extends CalculatorInputs {
+interface FormState extends RebateInputs {
   memberName: string;
   fileId: string;
   insurancePaid: boolean;
 }
 
-/**
- * Fresh copy of the default (worked-example) state on every call, so Reset
- * always yields a brand-new object with independent nested arrays.
- */
 function makeDefaultState(): FormState {
   return {
     memberName: '',
     fileId: '',
-    principal: 900_000,
-    tenureYears: 7,
-    tiers: [
-      { durationYears: 3, ratePercent: 5 },
-      { durationYears: 4, ratePercent: 3 },
-    ],
-    profitMode: 'tiers',
-    flatTotalProfit: 243_000,
-    yearsElapsed: 3,
+    productId: 'HGF',
+    years: 11,
+    principal: 1_000_000,
+    yearsPaid: 8,
     rebatePercent: 100,
     insurancePaid: true,
   };
 }
 
-function Timeline({ tenure, paid }: { tenure: number; paid: number }) {
-  const pct = tenure > 0 ? Math.min(100, Math.max(0, (paid / tenure) * 100)) : 0;
-  const remaining = Math.max(0, tenure - paid);
+function clampYears(productId: string, years: number): number {
+  const p = getProduct(productId);
+  if (!p) return years;
+  return Math.min(Math.max(Math.round(years), p.minYears), p.maxYears);
+}
+
+/** Timeline / progress bar of years paid vs remaining. */
+function Timeline({ term, paid }: { term: number; paid: number }) {
+  const pct = term > 0 ? Math.min(100, Math.max(0, (paid / term) * 100)) : 0;
+  const remaining = Math.max(0, term - paid);
   return (
     <div>
       <div className="flex justify-between text-[11px] text-slate-500 mb-1">
@@ -53,7 +47,7 @@ function Timeline({ tenure, paid }: { tenure: number; paid: number }) {
       </div>
       <div className="flex justify-between text-[11px] text-slate-400 mt-1">
         <span>Year 0</span>
-        <span>Year {tenure}</span>
+        <span>Year {term}</span>
       </div>
     </div>
   );
@@ -61,41 +55,39 @@ function Timeline({ tenure, paid }: { tenure: number; paid: number }) {
 
 export default function RebateTool() {
   const [state, setState] = useState<FormState>(makeDefaultState);
-  const result = useMemo(() => calculate(state), [state]);
+  const result = useMemo(() => calculateRebate(state), [state]);
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setState((s) => ({ ...s, [key]: val }));
 
-  const updateTier = (index: number, patch: Partial<RateTier>) =>
-    setState((s) => ({
-      ...s,
-      tiers: s.tiers.map((t, i) => (i === index ? { ...t, ...patch } : t)),
-    }));
-  const addTier = () =>
-    setState((s) => ({ ...s, tiers: [...s.tiers, { durationYears: 1, ratePercent: 3 }] }));
-  const removeTier = (index: number) =>
-    setState((s) => ({
-      ...s,
-      tiers: s.tiers.length > 1 ? s.tiers.filter((_, i) => i !== index) : s.tiers,
-    }));
+  const product = getProduct(state.productId);
+  const allowedYears = product
+    ? Array.from({ length: product.maxYears - product.minYears + 1 }, (_, i) => product.minYears + i)
+    : [];
+  const paidYears = Array.from({ length: state.years + 1 }, (_, i) => i); // 0..N
+
+  const onProductChange = (productId: string) =>
+    setState((s) => {
+      const years = clampYears(productId, s.years);
+      return { ...s, productId, years, yearsPaid: Math.min(s.yearsPaid, years) };
+    });
+  const onYearsChange = (years: number) =>
+    setState((s) => ({ ...s, years, yearsPaid: Math.min(s.yearsPaid, years) }));
 
   const reset = () => setState(makeDefaultState());
   const downloadPdf = () =>
     generateSettlementPdf({
-      member: { name: state.memberName, fileId: state.fileId },
+      member: { name: state.memberName, fileId: state.fileId, product: product?.name ?? '' },
       inputs: state,
       result,
       insurancePaid: state.insurancePaid,
     });
 
-  const lastTierDuration =
-    result.resolvedTiers[result.resolvedTiers.length - 1]?.effectiveDuration ?? 0;
-
   return (
     <>
       <Toolbar
         title="Early Settlement Rebate (Ibra’)"
-        subtitle="Compute the rebate owed when a member settles their financing early."
+        subtitle="Select the product, term and years paid — the rebate is the profit for the unserved years."
         onReset={reset}
         onDownload={downloadPdf}
         downloadLabel="Download PDF"
@@ -104,7 +96,7 @@ export default function RebateTool() {
       <main className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Inputs */}
         <div className="lg:col-span-3 space-y-5">
-          <Card title="Member Details" step="1">
+          <Card title="Member & Product" step="1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Member name" hint="For the statement only — not stored.">
                 <TextInput
@@ -120,99 +112,62 @@ export default function RebateTool() {
                   placeholder="e.g. AB0001"
                 />
               </Field>
+              <Field label="Financing product" hint={product?.note}>
+                <select
+                  value={state.productId}
+                  onChange={(e) => onProductChange(e.target.value)}
+                  className={inputCls}
+                >
+                  {['Murabahah', 'Istisnaa', 'Service Ijarah'].map((cat) => (
+                    <optgroup key={cat} label={cat}>
+                      {PRODUCTS.filter((p) => p.category === cat).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Original term (years)"
+                hint={product ? `${product.minYears}–${product.maxYears} years for this product` : undefined}
+              >
+                <select
+                  value={state.years}
+                  onChange={(e) => onYearsChange(Number(e.target.value))}
+                  className={inputCls}
+                >
+                  {allowedYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y} {y === 1 ? 'year' : 'years'}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             </div>
           </Card>
 
-          <Card title="Financing Details" step="2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <Card title="Settlement Position" step="2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Principal amount (MUR)">
                 <NumberInput value={state.principal} onChange={(n) => set('principal', n)} min={0} />
               </Field>
-              <Field label="Original tenure (years)">
-                <NumberInput
-                  value={state.tenureYears}
-                  onChange={(n) => set('tenureYears', n)}
-                  min={0}
-                  suffix="yrs"
-                />
-              </Field>
-            </div>
-
-            <div className="mb-4 inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50">
-              <button
-                onClick={() => set('profitMode', 'tiers')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                  state.profitMode === 'tiers' ? 'bg-albarakah-500 text-white' : 'text-slate-600'
-                }`}
-              >
-                Rate tiers
-              </button>
-              <button
-                onClick={() => set('profitMode', 'flat')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                  state.profitMode === 'flat' ? 'bg-albarakah-500 text-white' : 'text-slate-600'
-                }`}
-              >
-                Flat total profit
-              </button>
-            </div>
-
-            {state.profitMode === 'tiers' ? (
-              <div>
-                <TierBuilder
-                  tiers={state.tiers}
-                  lastEffectiveDuration={lastTierDuration}
-                  onUpdate={updateTier}
-                  onAdd={addTier}
-                  onRemove={removeTier}
-                />
-                <div className="mt-4 rounded-lg bg-albarakah-50 border border-albarakah-100 px-4 py-3">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-xs font-medium text-albarakah-700">
-                      Total profit over tenure
-                    </span>
-                    <span className="text-sm font-bold text-albarakah-700 tabular-nums">
-                      {formatMUR(result.totalProfit)}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-albarakah-600 text-right">
-                    {formatPercent(result.totalProfitPercentOfPrincipal)} of principal
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Field
-                  label="Total profit amount (MUR)"
-                  hint="Bypasses the tier builder. Remaining profit is estimated straight-line."
+              <Field label="Years already paid">
+                <select
+                  value={state.yearsPaid}
+                  onChange={(e) => set('yearsPaid', Number(e.target.value))}
+                  className={inputCls}
                 >
-                  <NumberInput
-                    value={state.flatTotalProfit}
-                    onChange={(n) => set('flatTotalProfit', n)}
-                    min={0}
-                  />
-                </Field>
-                <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-[11px] text-amber-700">
-                  ⚠ Approximation mode: remaining profit is prorated by years remaining ÷ tenure
-                  and ignores the actual tier shape.
-                </div>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Settlement Position" step="3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Years already paid" hint="Supports decimals, e.g. 3.5">
-                <NumberInput
-                  value={state.yearsElapsed}
-                  onChange={(n) => set('yearsElapsed', n)}
-                  min={0}
-                  max={state.tenureYears}
-                  suffix="yrs"
-                />
+                  {paidYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y} {y === 1 ? 'year' : 'years'}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field
-                label="Rebate given (% of remaining profit)"
+                label="Rebate given (% of unearned profit)"
                 hint="Default 100% — full Ibra’. Lower only for a partial-rebate product."
               >
                 <NumberInput
@@ -238,6 +193,45 @@ export default function RebateTool() {
               </span>
             </label>
           </Card>
+
+          {/* Per-year profit rate breakdown */}
+          <Card title="Per-Year Profit Rate">
+            <p className="text-[11px] text-slate-500 mb-3">
+              Each year carries a marginal profit rate. The society keeps the rate for the years
+              served; the rebate is the profit for the unserved years.
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-xs tabular-nums">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold">Year</th>
+                    <th className="px-3 py-2 text-right font-semibold">Rate</th>
+                    <th className="px-3 py-2 text-right font-semibold">Profit (MUR)</th>
+                    <th className="px-3 py-2 text-left font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.yearRows.map((r) => (
+                    <tr
+                      key={r.year}
+                      className={`border-t border-slate-100 ${r.served ? '' : 'bg-amber-50'}`}
+                    >
+                      <td className="px-3 py-1.5 text-left text-slate-500">Year {r.year}</td>
+                      <td className="px-3 py-1.5 text-right">{formatPercent(r.marginalRatePercent)}</td>
+                      <td className="px-3 py-1.5 text-right">{formatMUR(r.marginalAmount, false)}</td>
+                      <td className="px-3 py-1.5 text-left">
+                        {r.served ? (
+                          <span className="text-slate-500">Paid</span>
+                        ) : (
+                          <span className="text-amber-700 font-semibold">Rebated</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
 
         {/* Results */}
@@ -248,7 +242,7 @@ export default function RebateTool() {
               <p className="text-3xl font-bold tabular-nums mt-1">{formatMUR(result.rebateAmount)}</p>
               <p className="text-xs text-white/80 mt-1">
                 {formatPercent(result.rebatePercentOfPrincipal)} of principal ·{' '}
-                {formatPercent(state.rebatePercent)} of remaining profit
+                {formatPercent(result.unearnedProfitPercent)} unearned rate
               </p>
             </div>
 
@@ -259,27 +253,26 @@ export default function RebateTool() {
               <p className="text-4xl font-extrabold text-albarakah-700 tabular-nums mt-1">
                 {formatMUR(result.amountToSettle)}
               </p>
-              {result.isApproximation && (
-                <p className="text-[11px] text-amber-600 mt-2">
-                  ⚠ Based on a straight-line approximation of remaining profit.
-                </p>
-              )}
             </div>
 
             <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
-              <p className="text-xs font-semibold text-slate-600 mb-3">Tenure progress</p>
-              <Timeline tenure={state.tenureYears} paid={state.yearsElapsed} />
+              <p className="text-xs font-semibold text-slate-600 mb-3">Term progress</p>
+              <Timeline term={state.years} paid={state.yearsPaid} />
             </div>
 
             <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
               <p className="text-xs font-semibold text-slate-600 mb-2">Breakdown</p>
-              <ResultRow label="Years remaining" value={`${result.yearsRemaining} yrs`} />
+              <ResultRow label="Benchmark rate" value={`${formatPercent(result.benchmark)}/yr`} />
               <ResultRow
-                label={
-                  result.isApproximation ? 'Remaining profit (est.)' : 'Remaining (unearned) profit'
-                }
-                value={formatMUR(result.remainingProfit)}
+                label="Total profit (full term)"
+                value={formatMUR(result.totalProfit)}
+                sub={`${formatPercent(result.totalProfitPercent)} of principal`}
               />
+              <ResultRow
+                label={`Profit earned (${state.yearsPaid} yr served)`}
+                value={formatMUR(result.earnedProfit)}
+              />
+              <ResultRow label="Unearned profit" value={formatMUR(result.unearnedProfit)} />
               <ResultRow label="Rebate amount" value={formatMUR(result.rebateAmount)} />
               <ResultRow label="Outstanding principal" value={formatMUR(result.outstandingPrincipal)} />
               <ResultRow
