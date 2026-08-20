@@ -63,6 +63,16 @@ test('settlement reconciles: remaining balance − rebate + outstanding PRF', ()
   assert.ok(near(r.amountToSettle, r.remainingBalance - r.rebateAmount + r.prfOutstanding));
 });
 
+test('the rebate is explicitly deducted from the settlement', () => {
+  const r = calculateRebate(base);
+  // Balance to settle before the rebate = remaining balance + outstanding PRF.
+  assert.equal(round(r.settleBeforeRebate), round(r.remainingBalance + r.prfOutstanding));
+  // Amount to settle = that, minus the rebate.
+  assert.equal(round(r.amountToSettle), round(r.settleBeforeRebate - r.rebateAmount));
+  // The rebate genuinely lowers what the member pays.
+  assert.ok(r.amountToSettle < r.settleBeforeRebate);
+});
+
 test('settling at full term leaves nothing to pay', () => {
   const r = calculateRebate({ ...base, yearsPaid: 10, prfPaid: 1_000_000 });
   assert.equal(round(r.rebateAmount), 0);

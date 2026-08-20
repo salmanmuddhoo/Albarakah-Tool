@@ -247,6 +247,21 @@ export default function RebateTool() {
               <p className="text-4xl font-extrabold text-albarakah-700 tabular-nums mt-1">
                 {formatMUR(result.amountToSettle)}
               </p>
+              {/* Show the rebate as an explicit deduction */}
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Balance to settle{result.prfOutstanding > 0 ? ' (incl. PRF)' : ''}</span>
+                  <span className="tabular-nums">{formatMUR(result.settleBeforeRebate)}</span>
+                </div>
+                <div className="flex justify-between text-albarakah-700 font-semibold">
+                  <span>Less rebate (Ibra’)</span>
+                  <span className="tabular-nums">− {formatMUR(result.rebateAmount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-800 font-bold border-t border-slate-100 pt-1">
+                  <span>Amount to settle</span>
+                  <span className="tabular-nums">{formatMUR(result.amountToSettle)}</span>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">

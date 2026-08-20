@@ -71,6 +71,9 @@ export interface RebateResult {
   /** Outstanding PRF still owed (added to the settlement). */
   prfOutstanding: number;
 
+  /** What the member would pay to settle WITHOUT the rebate (balance + PRF). */
+  settleBeforeRebate: number;
+  /** Final amount to settle = settleBeforeRebate − rebate. */
   amountToSettle: number;
   /** Net rebate benefit to the member after any outstanding PRF is deducted. */
   netRebate: number;
@@ -125,7 +128,11 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
   const prfPaid = Math.max(0, inputs.prfPaid || 0);
   const prfOutstanding = Math.max(0, prfDue - prfPaid);
 
-  const amountToSettle = outstandingPrincipal + profitStillPayable + prfOutstanding;
+  // Settlement: the member owes the full remaining balance plus any outstanding
+  // PRF, and the rebate (Ibra') is deducted from that — the member does not
+  // receive the rebate in cash, they pay that much less to settle.
+  const settleBeforeRebate = remainingBalance + prfOutstanding;
+  const amountToSettle = Math.max(0, settleBeforeRebate - rebateAmount);
   const netRebate = rebateAmount - prfOutstanding;
   const albarakahProfit = totalProfit - rebateAmount;
 
@@ -162,6 +169,7 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
     prfDue,
     prfPaid,
     prfOutstanding,
+    settleBeforeRebate,
     amountToSettle,
     netRebate,
     albarakahProfit,

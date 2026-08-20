@@ -180,6 +180,31 @@ export function generateSettlementPdf(payload: PdfPayload): void {
     margin: { left: marginX, right: marginX },
   });
   // @ts-expect-error runtime property
+  y = doc.lastAutoTable.finalY + 16;
+
+  // ---- Settlement calculation (rebate shown as an explicit deduction) ----
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Settlement', marginX, y);
+  y += 6;
+  autoTable(doc, {
+    startY: y,
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 4, textColor: DARK },
+    columnStyles: {
+      0: { cellWidth: 340 },
+      1: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
+    },
+    body: [
+      [
+        `Balance to settle${result.prfOutstanding > 0 ? ' (incl. outstanding PRF)' : ''}`,
+        formatMUR(result.settleBeforeRebate),
+      ],
+      ['Less: rebate (Ibra’)', `- ${formatMUR(result.rebateAmount)}`],
+    ],
+    margin: { left: marginX, right: marginX },
+  });
+  // @ts-expect-error runtime property
   y = doc.lastAutoTable.finalY + 14;
 
   // ---- Highlighted final amount (with page-break guard) ----
