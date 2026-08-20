@@ -93,10 +93,25 @@ export function relativeRatio(years: number): number {
   return years <= 3 ? 1 : 0.95 ** (years - 3);
 }
 
-/** Total profit rate (percent of principal) for a financing of `years` years. */
-export function profitRatePercent(benchmark: number, years: number): number {
+/** Exact (un-rounded) geometric profit rate — kept for reference/derivation. */
+export function exactProfitRatePercent(benchmark: number, years: number): number {
   if (years <= 0) return 0;
   return benchmark * years * relativeRatio(years);
+}
+
+/**
+ * Official total profit rate (percent of principal) for a financing of `years`
+ * years, as published in the society's profit table.
+ *
+ * Years 1–3 (relative ratio = 1) keep the exact flat rate (benchmark × n); from
+ * year 4 onwards the geometrically-decreased rate is rounded to the nearest
+ * whole number (e.g. 11-year benchmark-5.5 = 40%, not 40.14%). This matches the
+ * printed table exactly, and it is the rate the society actually charges.
+ */
+export function profitRatePercent(benchmark: number, years: number): number {
+  if (years <= 0) return 0;
+  const exact = exactProfitRatePercent(benchmark, years);
+  return years <= 3 ? exact : Math.round(exact);
 }
 
 /**

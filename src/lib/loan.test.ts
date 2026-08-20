@@ -14,18 +14,18 @@ const base: LoanInputs = {
   shareRatioPercent: 33.3333,
 };
 
-test('total profit and payable use the table rate', () => {
+test('total profit and payable use the official (rounded) rate', () => {
   const r = calculateLoan(base);
-  // 8 years @ 5.5 → 34.0464%
-  assert.ok(near(r.profitRatePercent, 34.0464));
-  assert.ok(near(r.totalProfit, 340_464, 5));
-  assert.ok(near(r.totalPayable, 1_340_464, 5));
+  // 8 years @ 5.5 → 34% (official)
+  assert.equal(r.profitRatePercent, 34);
+  assert.equal(round(r.totalProfit), 340_000);
+  assert.equal(round(r.totalPayable), 1_340_000);
   assert.equal(r.totalMonths, 96);
 });
 
 test('monthly payment = total payable / months', () => {
   const r = calculateLoan(base);
-  assert.ok(near(r.monthlyPayment, r.totalPayable / 96, 0.01));
+  assert.ok(near(r.monthlyPayment, 1_340_000 / 96, 0.01));
 });
 
 test('schedule amortizes principal to zero over the term', () => {
@@ -41,7 +41,7 @@ test('MVF benchmark steps for the 8 < years ≤ 10 band', () => {
   const at10 = calculateLoan({ ...base, productId: 'MVF_PERSONAL', years: 10 });
   assert.equal(at8.benchmark, 6.0);
   assert.equal(at10.benchmark, 6.5);
-  assert.ok(near(at10.profitRatePercent, 45.3919));
+  assert.equal(at10.profitRatePercent, 45); // official rounded rate
 });
 
 test('shares requirement reports shortfall (one third of 900,000 → 300,000)', () => {

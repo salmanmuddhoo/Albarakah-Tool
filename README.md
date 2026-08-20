@@ -27,10 +27,12 @@ RelativeRatio(n) = 1                for n ≤ 3
 ProfitRate(n)    = FlatRate(n) × RelativeRatio(n)   (percent of principal)
 ```
 
-This reproduces every value in the society's July-2024 profit table exactly
-(verified against all products in `profitTable.test.ts`). Examples: group‑1
-benchmark 5.5 → 8 years = **34.05%**, 11 years = **40.14%**; MVF 8<Yrs≤10
-benchmark 6.5 → 10 years = **45.39%**.
+The published table uses **whole-number rates**: years 1–3 (relative ratio = 1)
+keep the exact flat rate, and from year 4 the geometrically-decreased rate is
+**rounded to the nearest whole number** — this is the rate the society actually
+charges. Examples: group‑1 benchmark 5.5 → 8 years = **34%**, 11 years = **40%**;
+MVF 8<Yrs≤10 benchmark 6.5 → 10 years = **45%**. This reproduces every value in
+the society's July‑2024 profit table exactly (verified in `profitTable.test.ts`).
 
 ### Products and benchmarks
 
@@ -81,9 +83,9 @@ served, and the rebate is the profit for the **unserved** years.
 ### Worked example (default form state)
 
 Product HGF (benchmark 5.5%), principal MUR 1,000,000, term 11 years, paid 8 years:
-total profit **MUR 401,369.36** (40.14%), profit earned **MUR 340,463.61** (8‑yr
-rate 34.05%), rebate = profit for years 9–11 = **MUR 60,905.75**, outstanding
-principal **MUR 272,727.27** (3/11), amount to settle **MUR 272,727.27**.
+total profit **MUR 400,000** (40%), profit earned **MUR 340,000** (8‑yr rate 34%),
+rebate = profit for years 9–11 = **MUR 60,000**, outstanding principal
+**MUR 272,727.27** (3/11), amount to settle **MUR 272,727.27**.
 
 ## Tech stack
 
