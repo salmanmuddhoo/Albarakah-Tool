@@ -57,3 +57,20 @@ test('shares requirement met when member holds enough', () => {
   assert.equal(r.sharesMet, true);
   assert.equal(r.sharesShortfall, 0);
 });
+
+test('PRF: one row per year, year 1 on month 1, capped at 4,000', () => {
+  // 1,000,000 over 10 years @ 38% → payable 1,380,000 (matches the example).
+  const r = calculateLoan({ ...base, productId: 'HGF', years: 10 });
+  assert.equal(round(r.totalPayable), 1_380_000);
+  assert.equal(r.prfByYear.length, 10);
+  assert.equal(r.prfByYear[0].prf, 4_000); // capped
+  assert.equal(r.schedule[0].prf, 4_000); // month 1
+  assert.equal(r.schedule[11].prf, 4_000); // month 12 = end of year 1
+  assert.equal(r.schedule[5].prf, 0); // a non-PRF month
+  assert.equal(round(r.totalPrf), 36_140);
+});
+
+test('shares ratio of 25% is supported', () => {
+  const r = calculateLoan({ ...base, principal: 1_000_000, shareRatioPercent: 25 });
+  assert.equal(r.requiredShares, 250_000);
+});

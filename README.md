@@ -60,12 +60,20 @@ Select a product and term; enter the financing amount. It computes:
 - **Monthly installment** = `total payable ÷ (years × 12)` (equal flat‑Murabaha
   installments — principal repaid straight‑line, profit spread evenly).
 - **Minimum shares requirement** — to qualify, a member must hold a minimum in
-  their shares account, a configurable fraction of the financing (default **one
-  third**). Shows the required amount and, if short, exactly **how much more they
-  must add** (e.g. financing MUR 900,000 → requires MUR 300,000; holding
-  MUR 200,000 → must add MUR 100,000).
+  their shares account: **one third (33.33%)** or **25%** of the financing,
+  chosen from a dropdown. Shows the required amount and, if short, exactly **how
+  much more they must add**.
+- **PRF (yearly insurance premium)** — shown as a column in the schedule. It is
+  1% of the amount remaining to repay, **capped at MUR 4,000/year**: year 1 at
+  the start of the financing, following years at each year-end. It is
+  informational and does **not** change the loan balance. The total PRF over the
+  term is shown too.
 - **Full schedule of payments** — month-by-month table (opening, principal,
-  profit, payment, closing), on screen and in the PDF (`<File ID> - Loan Schedule.pdf`).
+  profit, payment, closing, PRF), on screen and in the PDF
+  (`<File ID> - Loan Schedule.pdf`).
+- **Documents checklist** — the generated PDF includes a loan-approval document
+  checklist with tick boxes (ID, proof of address, payslip, …) for the officer.
+  This is an indicative list; it will be tailored per product later.
 
 ## Rebate tool
 
@@ -80,7 +88,11 @@ served, and the rebate is the profit for the **unserved** years.
 - **Rebate amount (Ibra')** — 100% of the unearned profit by default (full Ibra'),
   with an adjustable 0–100% field for partial‑rebate products.
 - **Outstanding principal** — straight‑line, `principal × (N − k) / N`.
-- **Amount to pay to settle** = outstanding principal + profit still payable.
+- **PRF reconciliation** — the officer enters the **PRF actually paid**. The tool
+  shows the indicative PRF due for the years served; any shortfall is **added to
+  the amount to settle** (and reduces the net rebate to the member).
+- **Amount to pay to settle** = outstanding principal + profit still payable +
+  outstanding PRF.
 - A **per‑year rate breakdown** shows each year's marginal rate, flagged Paid or
   Rebated.
 
@@ -147,11 +159,15 @@ src/
   lib/
     profitTable.ts      # products, benchmarks, and the profit-rate formula
     profitTable.test.ts # validates the formula against the society's table
-    rebate.ts           # early-settlement rebate logic
+    prf.ts              # PRF yearly insurance premium (1% capped at 4,000)
+    prf.test.ts         # PRF unit tests (worked example + edge cases)
+    rebate.ts           # early-settlement rebate logic (incl. PRF reconciliation)
     rebate.test.ts      # rebate unit tests (worked example + edge cases)
-    loan.ts             # loan installments, schedule, shares requirement
+    loan.ts             # loan installments, schedule (incl. PRF), shares
     loan.test.ts        # loan unit tests
     format.ts           # shared MUR / percent formatting
+    logoBase64.ts       # logo as a data URL for PDF embedding
+    pdfCommon.ts        # shared PDF header (logo), colors, checkbox, helpers
     pdf.ts              # jsPDF rebate settlement-statement generator
     loanPdf.ts          # jsPDF loan schedule-of-payments generator
   components/

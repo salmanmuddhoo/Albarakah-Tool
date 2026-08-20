@@ -150,17 +150,15 @@ export default function LoanCalculator() {
 
             <Card title="Shares Requirement" step="3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field
-                  label="Required shares (% of financing)"
-                  hint="Default one third (33.3333%). Adjust per product."
-                >
-                  <NumberInput
-                    value={state.shareRatioPercent}
-                    onChange={(n) => set('shareRatioPercent', n)}
-                    min={0}
-                    max={100}
-                    suffix="%"
-                  />
+                <Field label="Required shares (% of financing)">
+                  <select
+                    value={String(state.shareRatioPercent)}
+                    onChange={(e) => set('shareRatioPercent', Number(e.target.value))}
+                    className={inputCls}
+                  >
+                    <option value="33.3333">One third (33.33%)</option>
+                    <option value="25">25%</option>
+                  </select>
                 </Field>
                 <Field label="Member current shares (MUR)">
                   <NumberInput
@@ -226,6 +224,11 @@ export default function LoanCalculator() {
                 <ResultRow label="Total amount payable" value={formatMUR(result.totalPayable)} />
                 <ResultRow label="Number of installments" value={`${result.totalMonths} months`} />
                 <ResultRow label="Monthly installment" value={formatMUR(result.monthlyPayment)} />
+                <ResultRow
+                  label="Total PRF (insurance) over term"
+                  value={formatMUR(result.totalPrf)}
+                  sub="1% of balance/yr, capped at MUR 4,000"
+                />
               </div>
 
               <button
@@ -250,6 +253,7 @@ export default function LoanCalculator() {
                   <th className="px-3 py-2 text-right font-semibold">Profit</th>
                   <th className="px-3 py-2 text-right font-semibold">Payment</th>
                   <th className="px-3 py-2 text-right font-semibold">Closing</th>
+                  <th className="px-3 py-2 text-right font-semibold">PRF</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,6 +267,9 @@ export default function LoanCalculator() {
                       {formatMUR(r.payment, false)}
                     </td>
                     <td className="px-3 py-1.5 text-right">{formatMUR(r.closingBalance, false)}</td>
+                    <td className="px-3 py-1.5 text-right text-albarakah-700">
+                      {r.prf > 0 ? formatMUR(r.prf, false) : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -270,7 +277,9 @@ export default function LoanCalculator() {
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
             All amounts in MUR. Equal monthly installments — principal repaid straight-line, profit
-            spread evenly across the term.
+            spread evenly across the term. <span className="font-medium">PRF</span> is a yearly
+            insurance premium (1% of the remaining amount to repay, capped at MUR 4,000): year 1 at
+            the start, following years at each year-end. It does not affect the closing balance.
           </p>
         </Card>
       </main>

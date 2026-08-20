@@ -5,10 +5,19 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatMUR, formatPercent } from './format';
 import { type LoanResult } from './loan';
+import { TEAL, DARK, LIGHT, MARGIN_X, drawHeader, drawCheckbox, safeFilenamePart, pdfSafe } from './pdfCommon';
 
-const TEAL: [number, number, number] = [15, 118, 110];
-const DARK: [number, number, number] = [30, 41, 59];
-const LIGHT: [number, number, number] = [241, 245, 249];
+const marginX = MARGIN_X;
+
+/** Default loan-approval document checklist (tailored per product later). */
+export const DEFAULT_CHECKLIST = [
+  'National Identity Card (copy)',
+  'Proof of Address (utility bill, within 3 months)',
+  'Recent Payslip(s)',
+  'Bank Statement(s)',
+  'Completed & signed application form',
+  'Proof of membership / shares account',
+];
 
 export interface LoanPdfPayload {
   member: { name: string; fileId: string; product: string };
@@ -17,14 +26,6 @@ export interface LoanPdfPayload {
   currentShares: number;
   shareRatioPercent: number;
   result: LoanResult;
-}
-
-function safeFilenamePart(value: string): string {
-  return value
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '')
-    .replace(/\s+/g, ' ')
-    .slice(0, 60);
 }
 
 export function buildLoanFilename(fileId: string, name = ''): string {
@@ -36,28 +37,8 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   const { member, result } = payload;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 40;
-  let y = 44;
-
-  // ---- Header / branding ----
-  doc.setFillColor(...TEAL);
-  doc.rect(0, 0, pageWidth, 90, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.text('Albarakah MCSL', marginX, 44);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  doc.text('Financing Schedule of Payments', marginX, 64);
-  doc.setFontSize(9);
-  doc.text(
-    `Generated: ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`,
-    pageWidth - marginX,
-    64,
-    { align: 'right' },
-  );
-
-  y = 118;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = drawHeader(doc, 'Financing Schedule of Payments');
 
   // ---- Member details ----
   doc.setTextColor(...DARK);
@@ -73,7 +54,7 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
     body: [
       ['Member name', member.name || '—'],
       ['Membership / File ID', member.fileId || '—'],
-      ['Financing product', member.product || '—'],
+      ['Financing product', pdfSafe(member.product || '-')],
     ],
     margin: { left: marginX, right: marginX },
   });
@@ -85,7 +66,6 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   doc.setFontSize(11);
   doc.text('Financing Summary', marginX, y);
   y += 6;
-
   autoTable(doc, {
     startY: y,
     theme: 'plain',
@@ -95,13 +75,11 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
       ['Principal (financing amount)', formatMUR(payload.principal)],
       ['Term', `${payload.years} years (${result.totalMonths} months)`],
       ['Benchmark rate', `${formatPercent(result.benchmark)}/yr`],
-      [
-        'Profit rate',
-        `${formatPercent(result.profitRatePercent)} of principal`,
-      ],
+      ['Profit rate', `${formatPercent(result.profitRatePercent)} of principal`],
       ['Total profit', formatMUR(result.totalProfit)],
       ['Total amount payable', formatMUR(result.totalPayable)],
       ['Monthly installment', `${formatMUR(result.monthlyPayment)} / month`],
+      ['Total PRF (insurance) over term', formatMUR(result.totalPrf)],
     ],
     margin: { left: marginX, right: marginX },
   });
@@ -126,9 +104,7 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
       ['Member current shares', formatMUR(payload.currentShares)],
       [
         result.sharesMet ? 'Status' : 'Additional shares to add',
-        result.sharesMet
-          ? 'Requirement met'
-          : formatMUR(result.sharesShortfall),
+        result.sharesMet ? 'Requirement met' : formatMUR(result.sharesShortfall),
       ],
     ],
     margin: { left: marginX, right: marginX },
@@ -136,7 +112,39 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   // @ts-expect-error runtime property
   y = doc.lastAutoTable.finalY + 18;
 
+  // ---- Documents checklist ----
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Documents Checklist (for approval)', marginX, y);
+  y += 14;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...DARK);
+  for (const item of DEFAULT_CHECKLIST) {
+    if (y > pageHeight - 60) {
+      doc.addPage();
+      y = 50;
+    }
+    drawCheckbox(doc, marginX, y - 8, 10);
+    doc.text(pdfSafe(item), marginX + 16, y);
+    y += 18;
+  }
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    'Indicative list — the required documents will be tailored per financing product.',
+    marginX,
+    y,
+  );
+  y += 16;
+
   // ---- Amortization schedule (auto-paginates) ----
+  if (y > pageHeight - 120) {
+    doc.addPage();
+    y = 50;
+  }
+  doc.setTextColor(...DARK);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text('Schedule of Payments', marginX, y);
@@ -149,16 +157,17 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
     formatMUR(r.profitPortion, false),
     formatMUR(r.payment, false),
     formatMUR(r.closingBalance, false),
+    r.prf > 0 ? formatMUR(r.prf, false) : '',
   ]);
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Opening', 'Principal', 'Profit', 'Payment', 'Closing']],
+    head: [['#', 'Opening', 'Principal', 'Profit', 'Payment', 'Closing', 'PRF']],
     body: scheduleRows,
     theme: 'striped',
     headStyles: { fillColor: TEAL, textColor: 255, fontSize: 8 },
     styles: { fontSize: 8, cellPadding: 3, textColor: DARK, halign: 'right' },
-    columnStyles: { 0: { halign: 'center', cellWidth: 28 } },
+    columnStyles: { 0: { halign: 'center', cellWidth: 24 } },
     alternateRowStyles: { fillColor: LIGHT },
     margin: { left: marginX, right: marginX },
   });
@@ -166,7 +175,6 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   // ---- Footer note ----
   // @ts-expect-error runtime property
   let footerY = doc.lastAutoTable.finalY + 16;
-  const pageHeight = doc.internal.pageSize.getHeight();
   if (footerY > pageHeight - 40) {
     doc.addPage();
     footerY = 50;
@@ -175,9 +183,17 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(
+    'PRF is a yearly insurance premium (1% of the amount remaining to repay, capped at MUR 4,000). It does not reduce the loan balance and is shown for information.',
+    marginX,
+    footerY,
+    { maxWidth: pageWidth - marginX * 2 },
+  );
+  footerY += 20;
+  doc.text(
     'All amounts in MUR. This schedule is generated for internal use and is subject to verification by Albarakah MCSL.',
     marginX,
     footerY,
+    { maxWidth: pageWidth - marginX * 2 },
   );
 
   doc.save(buildLoanFilename(member.fileId, member.name));

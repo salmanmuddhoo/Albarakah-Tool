@@ -21,6 +21,7 @@ function makeDefaultState(): FormState {
     principal: 1_000_000,
     yearsPaid: 8,
     rebatePercent: 100,
+    prfPaid: 0,
     insurancePaid: true,
   };
 }
@@ -178,6 +179,12 @@ export default function RebateTool() {
                   suffix="%"
                 />
               </Field>
+              <Field
+                label="PRF actually paid (MUR)"
+                hint={`Indicative PRF due for ${state.yearsPaid} yr: ${formatMUR(result.prfDue)}. Any shortfall is added to the settlement.`}
+              >
+                <NumberInput value={state.prfPaid} onChange={(n) => set('prfPaid', n)} min={0} />
+              </Field>
             </div>
 
             <label className="mt-4 flex items-center gap-2 cursor-pointer select-none">
@@ -278,6 +285,20 @@ export default function RebateTool() {
               <ResultRow
                 label="Profit still payable after rebate"
                 value={formatMUR(result.profitStillPayable)}
+              />
+              <ResultRow
+                label={`PRF due (${state.yearsPaid} yr, indicative)`}
+                value={formatMUR(result.prfDue)}
+              />
+              <ResultRow label="PRF paid" value={formatMUR(result.prfPaid)} />
+              <ResultRow
+                label="Outstanding PRF (added to settle)"
+                value={formatMUR(result.prfOutstanding)}
+              />
+              <ResultRow
+                label="Net rebate to member"
+                value={formatMUR(result.netRebate)}
+                sub="rebate − outstanding PRF"
               />
               <ResultRow
                 label="Profit made by Albarakah"

@@ -12,6 +12,7 @@ const base: RebateInputs = {
   principal: 1_000_000,
   yearsPaid: 8,
   rebatePercent: 100,
+  prfPaid: 0,
 };
 
 test('total profit uses the official (rounded) full-term rate', () => {
@@ -29,11 +30,22 @@ test('rebate = profit for the unserved years (rate(N) − rate(k))', () => {
   assert.equal(round(r.rebateAmount), 60_000);
 });
 
-test('full rebate leaves zero profit payable; settle = outstanding principal', () => {
-  const r = calculateRebate(base);
+test('full rebate + PRF up to date: settle = outstanding principal', () => {
+  // Pay enough PRF so there is no outstanding PRF.
+  const r = calculateRebate({ ...base, prfPaid: 1_000_000 });
   assert.equal(round(r.profitStillPayable), 0);
+  assert.equal(round(r.prfOutstanding), 0);
   assert.ok(near(r.outstandingPrincipal, 1_000_000 * (3 / 11), 0.5));
   assert.ok(near(r.amountToSettle, r.outstandingPrincipal, 0.01));
+});
+
+test('unpaid PRF is added to the settlement and reduces the net rebate', () => {
+  // prfPaid = 0 → outstanding PRF = indicative due for the 8 years served.
+  const r = calculateRebate(base);
+  assert.ok(r.prfDue > 0);
+  assert.equal(round(r.prfOutstanding), round(r.prfDue));
+  assert.ok(near(r.amountToSettle, r.outstandingPrincipal + r.prfOutstanding, 0.01));
+  assert.ok(near(r.netRebate, r.rebateAmount - r.prfOutstanding, 0.01));
 });
 
 test('partial rebate (50%) leaves half the unearned profit payable', () => {
@@ -43,7 +55,7 @@ test('partial rebate (50%) leaves half the unearned profit payable', () => {
 });
 
 test('settling at full term gives no rebate', () => {
-  const r = calculateRebate({ ...base, yearsPaid: 11 });
+  const r = calculateRebate({ ...base, yearsPaid: 11, prfPaid: 1_000_000 });
   assert.equal(round(r.rebateAmount), 0);
   assert.equal(round(r.outstandingPrincipal), 0);
   assert.equal(round(r.amountToSettle), 0);

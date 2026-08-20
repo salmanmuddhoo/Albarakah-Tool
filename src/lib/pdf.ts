@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatMUR, formatPercent } from './format';
 import { type RebateInputs, type RebateResult } from './rebate';
+import { TEAL, DARK, LIGHT, MARGIN_X, drawHeader, safeFilenamePart, pdfSafe } from './pdfCommon';
 
 export interface MemberDetails {
   name: string;
@@ -22,17 +23,7 @@ export interface PdfPayload {
   insurancePaid: boolean;
 }
 
-const TEAL: [number, number, number] = [15, 118, 110];
-const DARK: [number, number, number] = [30, 41, 59];
-const LIGHT: [number, number, number] = [241, 245, 249];
-
-function safeFilenamePart(value: string): string {
-  return value
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '')
-    .replace(/\s+/g, ' ')
-    .slice(0, 60);
-}
+const marginX = MARGIN_X;
 
 export function buildSettlementFilename(fileId: string, name = ''): string {
   const label = safeFilenamePart(fileId) || safeFilenamePart(name);
@@ -43,28 +34,7 @@ export function generateSettlementPdf(payload: PdfPayload): void {
   const { member, inputs, result, insurancePaid } = payload;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 40;
-  let y = 44;
-
-  // ---- Header / branding ----
-  doc.setFillColor(...TEAL);
-  doc.rect(0, 0, pageWidth, 90, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.text('Albarakah MCSL', marginX, 44);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  doc.text('Early Settlement Statement (Ibra’ Rebate)', marginX, 64);
-  doc.setFontSize(9);
-  doc.text(
-    `Generated: ${new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`,
-    pageWidth - marginX,
-    64,
-    { align: 'right' },
-  );
-
-  y = 118;
+  let y = drawHeader(doc, 'Early Settlement Statement (Ibra’ Rebate)');
 
   // ---- Member details ----
   doc.setTextColor(...DARK);
@@ -80,7 +50,7 @@ export function generateSettlementPdf(payload: PdfPayload): void {
     body: [
       ['Member name', member.name || '—'],
       ['Membership / File ID', member.fileId || '—'],
-      ['Financing product', member.product || '—'],
+      ['Financing product', pdfSafe(member.product || '-')],
     ],
     margin: { left: marginX, right: marginX },
   });
@@ -179,6 +149,30 @@ export function generateSettlementPdf(payload: PdfPayload): void {
       ],
       ['Profit still payable after rebate', formatMUR(result.profitStillPayable)],
       ['Outstanding principal (remaining years)', formatMUR(result.outstandingPrincipal)],
+    ],
+    margin: { left: marginX, right: marginX },
+  });
+  // @ts-expect-error runtime property
+  y = doc.lastAutoTable.finalY + 16;
+
+  // ---- PRF (insurance) reconciliation ----
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('PRF (Insurance)', marginX, y);
+  y += 6;
+  autoTable(doc, {
+    startY: y,
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 4, textColor: DARK },
+    columnStyles: {
+      0: { cellWidth: 340 },
+      1: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
+    },
+    body: [
+      [`PRF due for years served (${inputs.yearsPaid} yr, indicative)`, formatMUR(result.prfDue)],
+      ['PRF actually paid', formatMUR(result.prfPaid)],
+      ['Outstanding PRF (added to settlement)', formatMUR(result.prfOutstanding)],
+      ['Net rebate to member (after outstanding PRF)', formatMUR(result.netRebate)],
     ],
     margin: { left: marginX, right: marginX },
   });

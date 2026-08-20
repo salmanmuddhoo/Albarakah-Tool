@@ -15,6 +15,7 @@
  * account — a configurable fraction of the financing (default one third).
  */
 import { getProduct, profitRatePercent } from './profitTable.ts';
+import { prfByMonth, totalPrf as sumPrf, type PrfYear, prfSchedule } from './prf.ts';
 
 export interface LoanInputs {
   productId: string;
@@ -34,6 +35,8 @@ export interface ScheduleRow {
   profitPortion: number;
   payment: number;
   closingBalance: number;
+  /** Yearly PRF shown on this month (0 on months with no PRF). Informational. */
+  prf: number;
 }
 
 export interface LoanResult {
@@ -49,6 +52,10 @@ export interface LoanResult {
   requiredShares: number;
   sharesShortfall: number;
   sharesMet: boolean;
+
+  // PRF (yearly insurance premium)
+  prfByYear: PrfYear[];
+  totalPrf: number;
 
   schedule: ScheduleRow[];
 }
@@ -78,6 +85,10 @@ export function calculateLoan(inputs: LoanInputs): LoanResult {
   const sharesShortfall = Math.max(0, round2(requiredShares - currentShares));
   const sharesMet = currentShares >= requiredShares;
 
+  // PRF (yearly insurance premium) — informational, does not affect the balance.
+  const prfByYear = prfSchedule(totalPayable, years);
+  const prfMonthMap = prfByMonth(totalPayable, years);
+
   // Amortization schedule: straight-line principal + even profit split.
   const schedule: ScheduleRow[] = [];
   const monthlyPrincipal = totalMonths > 0 ? principal / totalMonths : 0;
@@ -97,6 +108,7 @@ export function calculateLoan(inputs: LoanInputs): LoanResult {
       profitPortion: round2(monthlyProfit),
       payment: round2(principalPortion + monthlyProfit),
       closingBalance: round2(closingBalance),
+      prf: round2(prfMonthMap.get(m) ?? 0),
     });
   }
 
@@ -110,6 +122,8 @@ export function calculateLoan(inputs: LoanInputs): LoanResult {
     requiredShares,
     sharesShortfall,
     sharesMet,
+    prfByYear,
+    totalPrf: sumPrf(totalPayable, years),
     schedule,
   };
 }

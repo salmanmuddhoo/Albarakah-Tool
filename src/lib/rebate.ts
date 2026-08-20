@@ -11,6 +11,7 @@
  * to that unearned profit in case a product grants only a partial rebate.
  */
 import { getProduct, profitRatePercent, marginalRatePercent } from './profitTable.ts';
+import { prfDueForYears } from './prf.ts';
 
 export interface RebateInputs {
   productId: string;
@@ -21,6 +22,8 @@ export interface RebateInputs {
   yearsPaid: number;
   /** Rebate given, as a percentage (0–100) of the unearned profit. */
   rebatePercent: number;
+  /** PRF the member has actually paid so far (entered by the officer). */
+  prfPaid: number;
 }
 
 export interface YearRow {
@@ -49,7 +52,18 @@ export interface RebateResult {
 
   profitStillPayable: number;
   outstandingPrincipal: number;
+
+  // PRF (yearly insurance premium)
+  /** Indicative PRF that should have been paid for the years served. */
+  prfDue: number;
+  /** PRF the member actually paid (officer input). */
+  prfPaid: number;
+  /** Outstanding PRF still owed (added to the settlement). */
+  prfOutstanding: number;
+
   amountToSettle: number;
+  /** Net rebate benefit to the member after any outstanding PRF is deducted. */
+  netRebate: number;
   albarakahProfit: number;
 
   /** Per-year marginal-rate breakdown for display. */
@@ -81,7 +95,16 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
   const profitStillPayable = unearnedProfit - rebateAmount;
 
   const outstandingPrincipal = years > 0 ? principal * (yearsRemaining / years) : 0;
-  const amountToSettle = outstandingPrincipal + profitStillPayable;
+
+  // PRF: the member must be up to date on PRF for the years served to receive
+  // the rebate. Any shortfall is added to the amount to settle.
+  const totalPayable = principal + totalProfit;
+  const prfDue = prfDueForYears(totalPayable, years, yearsPaid);
+  const prfPaid = Math.max(0, inputs.prfPaid || 0);
+  const prfOutstanding = Math.max(0, prfDue - prfPaid);
+
+  const amountToSettle = outstandingPrincipal + profitStillPayable + prfOutstanding;
+  const netRebate = rebateAmount - prfOutstanding;
   const albarakahProfit = totalProfit - rebateAmount;
 
   const yearRows: YearRow[] = [];
@@ -108,7 +131,11 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
     rebatePercentOfPrincipal,
     profitStillPayable,
     outstandingPrincipal,
+    prfDue,
+    prfPaid,
+    prfOutstanding,
     amountToSettle,
+    netRebate,
     albarakahProfit,
     yearRows,
   };
