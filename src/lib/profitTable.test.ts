@@ -28,10 +28,11 @@ test("user's headline examples", () => {
   assert.equal(profitRatePercent(6.5, 10), 45); // MVF (8<Yrs≤10) at 10 years → 45%
 });
 
-test('MVF benchmark step: personal use 6.0 up to 8 yrs, 6.5 for 9–10', () => {
-  const p = getProduct('MVF_PERSONAL')!;
-  assert.equal(p.benchmarkFor(8), 6.0);
-  assert.equal(p.benchmarkFor(10), 6.5);
+test('MVF benchmark depends on the vehicle-age band (not the term)', () => {
+  assert.equal(getProduct('MVF_PERSONAL_LE8')!.benchmark, 6.0);
+  assert.equal(getProduct('MVF_PERSONAL_8_10')!.benchmark, 6.5);
+  assert.equal(getProduct('MVF_TRADE_LE8')!.benchmark, 6.5);
+  assert.equal(getProduct('MVF_TRADE_8_10')!.benchmark, 7.5);
 });
 
 test('years 1–3 keep the exact flat rate (not rounded)', () => {

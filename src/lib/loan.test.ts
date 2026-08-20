@@ -36,12 +36,13 @@ test('schedule amortizes principal to zero over the term', () => {
   assert.ok(Math.abs(principalSum - 1_000_000) < 1);
 });
 
-test('MVF benchmark steps for the 8 < years ≤ 10 band', () => {
-  const at8 = calculateLoan({ ...base, productId: 'MVF_PERSONAL', years: 8 });
-  const at10 = calculateLoan({ ...base, productId: 'MVF_PERSONAL', years: 10 });
-  assert.equal(at8.benchmark, 6.0);
-  assert.equal(at10.benchmark, 6.5);
-  assert.equal(at10.profitRatePercent, 45); // official rounded rate
+test('MVF benchmark comes from the vehicle-age band, independent of term', () => {
+  const le8 = calculateLoan({ ...base, productId: 'MVF_PERSONAL_LE8', years: 10 });
+  const b8to10 = calculateLoan({ ...base, productId: 'MVF_PERSONAL_8_10', years: 10 });
+  assert.equal(le8.benchmark, 6.0);
+  assert.equal(b8to10.benchmark, 6.5);
+  // Vehicle aged 8–10, financed over 10 years → 45% (benchmark 6.5).
+  assert.equal(b8to10.profitRatePercent, 45);
 });
 
 test('shares requirement reports shortfall (one third of 900,000 → 300,000)', () => {

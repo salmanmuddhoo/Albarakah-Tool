@@ -39,13 +39,17 @@ the society's July‑2024 profit table exactly (verified in `profitTable.test.ts
 | Benchmark | Products | Years |
 | --- | --- | --- |
 | 5.5% | Murabahah HGF / REF / CF / MCF · Istisnaa HF · Service Ijarah ATF / UF / WF / EF | 1–15 |
-| 6.0% → 6.5% | Murabahah MVF — Personal Use (6.0% ≤8 yrs; 6.5% for 8<yrs≤10) | 1–10 |
-| 6.5% → 7.5% | Murabahah MVF — Trade / Taxis, Vans, Lorries (6.5% ≤8 yrs; 7.5% for 8<yrs≤10) | 1–10 |
+| 6.0% | Murabahah MVF — Personal Use, **vehicle age ≤ 8 yrs** | 1–15 |
+| 6.5% | Murabahah MVF — Personal Use, **vehicle age 8–10 yrs** | 1–15 |
+| 6.5% | Murabahah MVF — Trade (Taxis / Vans / Lorries), **vehicle age ≤ 8 yrs** | 1–15 |
+| 7.5% | Murabahah MVF — Trade (Taxis / Vans / Lorries), **vehicle age 8–10 yrs** | 1–15 |
 | 7.5% | Murabahah Trade Financing | 1–15 |
 | 8.5% | Murabahah Office / Apartment / Business Property | 1–15 |
 
 Staff simply **select the product and the number of years** and the profit is
-computed from the table. Years are whole years.
+computed from the table. Years are whole years. For Motor Vehicle Financing the
+`≤ 8` / `8–10` bands are the **age of the vehicle** (not the financing term), so
+each band is a separate product to pick from.
 
 ## Loan Calculator
 
@@ -173,8 +177,8 @@ domain maths can be verified independently of the UI.
 - **Shares requirement** is a percentage of the financing (default one third),
   with the required amount rounded to the nearest rupee. Adjust the percentage
   per product.
-- **Motor Vehicle Financing** benchmarks step up for the 8 < years ≤ 10 band
-  (per the profit table); the app selects the right benchmark automatically from
-  the number of years.
+- **Motor Vehicle Financing** benchmarks depend on the **vehicle's age** band
+  (≤ 8 yrs vs 8–10 yrs), not the financing term. Each age band is listed as a
+  separate product so staff pick the one matching the vehicle.
 - No member data is persisted anywhere — member name and file ID are used only
   for the on-screen record and the generated PDF.

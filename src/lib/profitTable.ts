@@ -25,62 +25,71 @@ export interface Product {
   /** Minimum / maximum tenure in whole years for this product. */
   minYears: number;
   maxYears: number;
-  /**
-   * The benchmark flat rate (%/yr). For Motor Vehicle Financing the benchmark
-   * depends on the tenure band, so this is a function of the number of years.
-   */
-  benchmarkFor: (years: number) => number;
-  /** Short note shown under the product (e.g. tenure band rule). */
+  /** Benchmark flat rate (%/yr) that drives the profit table for this product. */
+  benchmark: number;
+  /** Short note shown under the product (e.g. the vehicle-age band it covers). */
   note?: string;
 }
 
-const fixed = (b: number) => () => b;
-
-// Motor Vehicle Financing benchmarks step up for the 8 < years ≤ 10 band.
-const mvfPersonal = (years: number) => (years <= 8 ? 6.0 : 6.5);
-const mvfTrade = (years: number) => (years <= 8 ? 6.5 : 7.5);
-
 export const PRODUCTS: Product[] = [
   // Benchmark 5.5 — Murabahah general, Istisnaa home, Service Ijarah
-  { id: 'HGF', name: 'Household General Financing (HGF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'REF', name: 'Real Estate Financing (REF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'CF', name: 'Computer Financing (CF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'MCF', name: 'Motor Cycle Financing (MCF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'HF', name: 'Home Financing (HF)', category: 'Istisnaa', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'ATF', name: 'Air Ticket Financing (ATF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'UF', name: 'Umrah Financing (UF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'WF', name: 'Wedding Financing (WF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
-  { id: 'EF', name: 'Education Financing (EF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmarkFor: fixed(5.5) },
+  { id: 'HGF', name: 'Household General Financing (HGF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'REF', name: 'Real Estate Financing (REF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'CF', name: 'Computer Financing (CF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'MCF', name: 'Motor Cycle Financing (MCF)', category: 'Murabahah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'HF', name: 'Home Financing (HF)', category: 'Istisnaa', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'ATF', name: 'Air Ticket Financing (ATF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'UF', name: 'Umrah Financing (UF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'WF', name: 'Wedding Financing (WF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmark: 5.5 },
+  { id: 'EF', name: 'Education Financing (EF)', category: 'Service Ijarah', minYears: 1, maxYears: 15, benchmark: 5.5 },
 
-  // Motor Vehicle Financing — benchmark steps by tenure band
+  // Motor Vehicle Financing — the benchmark depends on the VEHICLE'S AGE band.
   {
-    id: 'MVF_PERSONAL',
-    name: 'Motor Vehicle Financing (MVF) — Personal Use',
+    id: 'MVF_PERSONAL_LE8',
+    name: 'Motor Vehicle Financing (MVF) — Personal Use (vehicle age ≤ 8 yrs)',
     category: 'Murabahah',
     minYears: 1,
-    maxYears: 10,
-    benchmarkFor: mvfPersonal,
-    note: '6.0%/yr up to 8 years; 6.5%/yr for 8 < years ≤ 10.',
+    maxYears: 15,
+    benchmark: 6.0,
+    note: 'For a vehicle aged 8 years or less.',
   },
   {
-    id: 'MVF_TRADE',
-    name: 'Motor Vehicle Financing (MVF) — Trade (Taxis / Vans / Lorries)',
+    id: 'MVF_PERSONAL_8_10',
+    name: 'Motor Vehicle Financing (MVF) — Personal Use (vehicle age 8–10 yrs)',
     category: 'Murabahah',
     minYears: 1,
-    maxYears: 10,
-    benchmarkFor: mvfTrade,
-    note: '6.5%/yr up to 8 years; 7.5%/yr for 8 < years ≤ 10.',
+    maxYears: 15,
+    benchmark: 6.5,
+    note: 'For a vehicle aged over 8 and up to 10 years.',
+  },
+  {
+    id: 'MVF_TRADE_LE8',
+    name: 'Motor Vehicle Financing (MVF) — Trade / Taxis, Vans, Lorries (vehicle age ≤ 8 yrs)',
+    category: 'Murabahah',
+    minYears: 1,
+    maxYears: 15,
+    benchmark: 6.5,
+    note: 'For a commercial vehicle aged 8 years or less.',
+  },
+  {
+    id: 'MVF_TRADE_8_10',
+    name: 'Motor Vehicle Financing (MVF) — Trade / Taxis, Vans, Lorries (vehicle age 8–10 yrs)',
+    category: 'Murabahah',
+    minYears: 1,
+    maxYears: 15,
+    benchmark: 7.5,
+    note: 'For a commercial vehicle aged over 8 and up to 10 years.',
   },
 
   // Higher-benchmark Murabahah
-  { id: 'TF', name: 'Trade Financing', category: 'Murabahah', minYears: 1, maxYears: 15, benchmarkFor: fixed(7.5) },
+  { id: 'TF', name: 'Trade Financing', category: 'Murabahah', minYears: 1, maxYears: 15, benchmark: 7.5 },
   {
     id: 'OFFICE',
     name: 'Purchase of Office Space / Apartment / Business Property',
     category: 'Murabahah',
     minYears: 1,
     maxYears: 15,
-    benchmarkFor: fixed(8.5),
+    benchmark: 8.5,
   },
 ];
 

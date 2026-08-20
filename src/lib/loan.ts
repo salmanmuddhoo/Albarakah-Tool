@@ -64,7 +64,7 @@ export function calculateLoan(inputs: LoanInputs): LoanResult {
   const principal = Math.max(0, inputs.principal || 0);
   const years = Math.max(0, Math.round(inputs.years || 0));
   const totalMonths = monthsInTenure(years);
-  const benchmark = product ? product.benchmarkFor(years) : 0;
+  const benchmark = product ? product.benchmark : 0;
 
   const ratePercent = profitRatePercent(benchmark, years);
   const totalProfit = (principal * ratePercent) / 100;

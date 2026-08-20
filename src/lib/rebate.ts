@@ -66,7 +66,7 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
   const yearsPaid = clamp(Math.round(inputs.yearsPaid || 0), 0, years);
   const yearsRemaining = Math.max(0, years - yearsPaid);
   const rebatePercent = clamp(inputs.rebatePercent, 0, 100);
-  const benchmark = product ? product.benchmarkFor(years) : 0;
+  const benchmark = product ? product.benchmark : 0;
 
   const totalProfitPercent = profitRatePercent(benchmark, years);
   const earnedProfitPercent = profitRatePercent(benchmark, yearsPaid);
