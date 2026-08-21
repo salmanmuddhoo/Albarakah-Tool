@@ -52,6 +52,12 @@ test('settlement = outstanding capital + earned-but-unpaid profit (+ PRF)', () =
   assert.equal(round(r.amountToSettle), 763_000);
 });
 
+test('total outstanding = outstanding capital + profit still payable', () => {
+  const r = calculateRebate(base);
+  assert.equal(round(r.totalOutstanding), round(r.outstandingPrincipal + r.profitStillPayable));
+  assert.equal(round(r.totalOutstanding), 751_000); // 700,000 + 51,000
+});
+
 test('paying the outstanding PRF removes it from the settlement', () => {
   const r = calculateRebate({ ...base, prfPaid: 12_000 });
   assert.equal(round(r.prfOutstanding), 0);

@@ -62,6 +62,8 @@ export interface RebateResult {
   profitStillPayable: number;
   /** Remaining (unpaid) capital. */
   outstandingPrincipal: number;
+  /** Total outstanding = outstanding capital + profit still payable after rebate. */
+  totalOutstanding: number;
 
   // PRF (yearly insurance premium)
   /** Indicative PRF that should have been paid for the years served. */
@@ -121,6 +123,7 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
   const outstandingPrincipal = principal - capitalPaid;
   const remainingProfitUnpaid = totalProfit - profitPaid;
   const profitStillPayable = Math.max(0, remainingProfitUnpaid - rebateAmount);
+  const totalOutstanding = outstandingPrincipal + profitStillPayable;
 
   // PRF: the member must be up to date on PRF for the years served to receive
   // the rebate. Any shortfall is added to the amount to settle.
@@ -166,6 +169,7 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
     remainingBalance,
     profitStillPayable,
     outstandingPrincipal,
+    totalOutstanding,
     prfDue,
     prfPaid,
     prfOutstanding,

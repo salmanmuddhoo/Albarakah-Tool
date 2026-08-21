@@ -286,21 +286,12 @@ export default function RebateTool() {
                 value={formatMUR(result.totalPaid)}
                 sub={`capital ${formatMUR(result.capitalPaid, false)} + profit ${formatMUR(result.profitPaid, false)}`}
               />
-              <ResultRow label="Remaining balance to repay" value={formatMUR(result.remainingBalance)} />
-              <ResultRow
-                label={`Profit earned (${state.yearsPaid} yr served)`}
-                value={formatMUR(result.earnedProfit)}
-              />
               <ResultRow label="Unearned profit" value={formatMUR(result.unearnedProfit)} />
               <ResultRow label="Rebate amount (Ibra’)" value={formatMUR(result.rebateAmount)} />
               <ResultRow
-                label="Outstanding capital (unpaid)"
-                value={formatMUR(result.outstandingPrincipal)}
-              />
-              <ResultRow
-                label="Profit still payable after rebate"
-                value={formatMUR(result.profitStillPayable)}
-                sub="earned but not yet paid"
+                label="Total outstanding amount"
+                value={formatMUR(result.totalOutstanding)}
+                sub="outstanding capital + profit still payable"
               />
               <ResultRow
                 label={`PRF due (${state.yearsPaid} yr, indicative)`}
