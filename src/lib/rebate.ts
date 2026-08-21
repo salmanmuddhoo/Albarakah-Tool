@@ -39,6 +39,8 @@ export interface RebateResult {
 
   totalProfitPercent: number;
   totalProfit: number;
+  /** Total amount payable over the full term = principal + total profit. */
+  totalPayable: number;
 
   earnedProfitPercent: number;
   earnedProfit: number;
@@ -155,6 +157,7 @@ export function calculateRebate(inputs: RebateInputs): RebateResult {
     yearsRemaining,
     totalProfitPercent,
     totalProfit,
+    totalPayable,
     earnedProfitPercent,
     earnedProfit,
     unearnedProfitPercent,

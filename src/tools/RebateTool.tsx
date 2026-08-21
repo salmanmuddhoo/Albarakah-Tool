@@ -286,8 +286,17 @@ export default function RebateTool() {
                 value={formatMUR(result.totalPaid)}
                 sub={`capital ${formatMUR(result.capitalPaid, false)} + profit ${formatMUR(result.profitPaid, false)}`}
               />
-              <ResultRow label="Unearned profit" value={formatMUR(result.unearnedProfit)} />
-              <ResultRow label="Rebate amount (Ibra’)" value={formatMUR(result.rebateAmount)} />
+              <ResultRow
+                label="Total payment amount (full term)"
+                value={formatMUR(result.totalPayable)}
+                sub="principal + total profit"
+              />
+              <ResultRow
+                label={`Rebate amount (Ibra’) — ${result.yearsRemaining} ${
+                  result.yearsRemaining === 1 ? 'year' : 'years'
+                }`}
+                value={formatMUR(result.rebateAmount)}
+              />
               <ResultRow
                 label="Total outstanding amount"
                 value={formatMUR(result.totalOutstanding)}

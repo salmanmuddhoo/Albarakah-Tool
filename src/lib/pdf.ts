@@ -144,9 +144,9 @@ export function generateSettlementPdf(payload: PdfPayload): void {
       1: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
     },
     body: [
-      ['Unearned profit (unserved years)', formatMUR(result.unearnedProfit)],
+      ['Total payment amount (full term)', formatMUR(result.totalPayable)],
       [
-        `Rebate amount (Ibra’) — ${formatPercent(result.rebatePercentOfPrincipal)} of principal`,
+        `Rebate amount (Ibra’) — ${result.yearsRemaining} ${result.yearsRemaining === 1 ? 'year' : 'years'}`,
         formatMUR(result.rebateAmount),
       ],
       ['Total outstanding amount (capital + profit still payable)', formatMUR(result.totalOutstanding)],
