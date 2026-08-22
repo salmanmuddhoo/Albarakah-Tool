@@ -7,6 +7,7 @@ import { formatMUR, formatPercent } from './format';
 import { type LoanResult } from './loan';
 import { TEAL, DARK, LIGHT, MARGIN_X, drawHeader, drawCheckbox, safeFilenamePart, pdfSafe } from './pdfCommon';
 import { buildChecklist, applicantTypeLabel, type ApplicantType } from './checklist';
+import { calculateFees } from './fees';
 
 const marginX = MARGIN_X;
 
@@ -103,6 +104,32 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
     margin: { left: marginX, right: marginX },
   });
   // @ts-expect-error runtime property
+  y = doc.lastAutoTable.finalY + 16;
+
+  // ---- Application fees ----
+  const fees = calculateFees(member.productId, payload.principal);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Application Fees', marginX, y);
+  y += 6;
+  autoTable(doc, {
+    startY: y,
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 3, textColor: DARK },
+    columnStyles: { 0: { cellWidth: 320 }, 1: { halign: 'right', cellWidth: 'auto' } },
+    body: [
+      ...fees.lines.map((l) => [
+        pdfSafe(l.note ? `${l.label} (${l.note})` : l.label),
+        formatMUR(l.amount),
+      ]),
+      [
+        { content: 'Total fees', styles: { fontStyle: 'bold' } },
+        { content: formatMUR(fees.total), styles: { fontStyle: 'bold', halign: 'right' } },
+      ],
+    ] as never,
+    margin: { left: marginX, right: marginX },
+  });
+  // @ts-expect-error runtime property
   y = doc.lastAutoTable.finalY + 18;
 
   // ---- Documents checklist (per product + applicant type) ----
@@ -143,20 +170,7 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
     y += 6;
   }
 
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  if (y > pageHeight - 40) {
-    doc.addPage();
-    y = 50;
-  }
-  doc.text(
-    'Condensed from the society official SCF document checklist; to be verified against the current form.',
-    marginX,
-    y,
-    { maxWidth: pageWidth - marginX * 2 },
-  );
-  y += 16;
+  y += 6;
 
   // ---- Amortization schedule (auto-paginates) ----
   if (y > pageHeight - 120) {

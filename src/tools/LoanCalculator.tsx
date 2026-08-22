@@ -8,6 +8,7 @@ import {
   buildChecklist,
   type ApplicantType,
 } from '../lib/checklist';
+import { calculateFees } from '../lib/fees';
 import { generateLoanPdf } from '../lib/loanPdf';
 import { Card, Field, NumberInput, TextInput, ResultRow, inputCls } from '../components/ui';
 import { Toolbar } from '../components/Toolbar';
@@ -53,6 +54,10 @@ export default function LoanCalculator() {
   const checklist = useMemo(
     () => buildChecklist(state.productId, state.applicantType),
     [state.productId, state.applicantType],
+  );
+  const fees = useMemo(
+    () => calculateFees(state.productId, state.principal),
+    [state.productId, state.principal],
   );
 
   const onProductChange = (productId: string) =>
@@ -263,6 +268,30 @@ export default function LoanCalculator() {
                 />
               </div>
 
+              {/* Application fees */}
+              <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
+                <p className="text-xs font-semibold text-slate-600 mb-2">Application fees</p>
+                {fees.lines.map((line, i) => (
+                  <ResultRow
+                    key={i}
+                    label={line.note ? `${line.label} (${line.note})` : line.label}
+                    value={formatMUR(line.amount)}
+                  />
+                ))}
+                <div className="flex items-baseline justify-between pt-2 mt-1 border-t border-slate-200">
+                  <span className="text-sm font-semibold text-slate-800">Total fees</span>
+                  <span className="text-sm font-bold text-albarakah-700 tabular-nums">
+                    {formatMUR(fees.total)}
+                  </span>
+                </div>
+                {fees.aboveTable && (
+                  <p className="mt-2 text-[11px] text-amber-600">
+                    ⚠ Financing above Rs 1,500,000 is beyond the published fee table — confirm the
+                    processing fee with Head Office.
+                  </p>
+                )}
+              </div>
+
               <button
                 onClick={downloadPdf}
                 className="w-full rounded-xl bg-albarakah-500 py-3 text-sm font-semibold text-white hover:bg-albarakah-600 transition shadow-sm"
@@ -337,9 +366,6 @@ export default function LoanCalculator() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-[11px] text-slate-400">
-            Condensed from the society’s official SCF document checklist; verify against the current form.
-          </p>
         </Card>
       </main>
     </>

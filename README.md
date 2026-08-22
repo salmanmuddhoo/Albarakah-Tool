@@ -73,6 +73,11 @@ Select a product and term; enter the financing amount. It computes:
   balance is the total amount payable** (capital + profit) reducing to zero, with
   columns for capital, profit, payment and PRF. On screen and in the PDF
   (`<File ID> - Loan Schedule.pdf`).
+- **Application fees** — itemised from the society's table of charges: a
+  processing / administrative fee by financing-amount band, a Rs 30,000 govt.
+  registration fee for financing above Rs 1,000,000, and product-specific fees
+  (completion / notary / visit and an evaluation fee), with an indicative total.
+  Shown on screen and on the PDF. See `src/lib/fees.ts`.
 - **Applicant type** — Salaried person, Self-Employed, Pensioner or Other. This
   drives the income documents in the checklist.
 - **Documents checklist** — shown on screen and printed on the PDF with tick
