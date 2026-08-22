@@ -73,9 +73,13 @@ Select a product and term; enter the financing amount. It computes:
   balance is the total amount payable** (capital + profit) reducing to zero, with
   columns for capital, profit, payment and PRF. On screen and in the PDF
   (`<File ID> - Loan Schedule.pdf`).
-- **Documents checklist** — the generated PDF includes a loan-approval document
-  checklist with tick boxes (ID, proof of address, payslip, …) for the officer.
-  This is an indicative list; it will be tailored per product later.
+- **Applicant type** — Salaried person, Self-Employed, Pensioner or Other. This
+  drives the income documents in the checklist.
+- **Documents checklist** — shown on screen and printed on the PDF with tick
+  boxes, built per **financing product** and **applicant type**, in four sections:
+  common documents, income documents (by applicant type), product-specific
+  documents (HGF, HF, MVF/MCF, REF, …) and sureties/guarantors. Condensed from
+  the society's official SCF document checklist forms; see `src/lib/checklist.ts`.
 
 ## Rebate tool
 

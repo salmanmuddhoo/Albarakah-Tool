@@ -2,6 +2,12 @@ import { useMemo, useState } from 'react';
 import { formatMUR, formatPercent } from '../lib/format';
 import { calculateLoan, type LoanInputs } from '../lib/loan';
 import { PRODUCTS, getProduct } from '../lib/profitTable';
+import {
+  APPLICANT_TYPES,
+  applicantTypeLabel,
+  buildChecklist,
+  type ApplicantType,
+} from '../lib/checklist';
 import { generateLoanPdf } from '../lib/loanPdf';
 import { Card, Field, NumberInput, TextInput, ResultRow, inputCls } from '../components/ui';
 import { Toolbar } from '../components/Toolbar';
@@ -9,12 +15,14 @@ import { Toolbar } from '../components/Toolbar';
 interface FormState extends LoanInputs {
   memberName: string;
   fileId: string;
+  applicantType: ApplicantType;
 }
 
 function makeDefaultState(): FormState {
   return {
     memberName: '',
     fileId: '',
+    applicantType: 'salaried',
     productId: 'HGF',
     years: 8,
     principal: 1_000_000,
@@ -42,13 +50,24 @@ export default function LoanCalculator() {
     ? Array.from({ length: product.maxYears - product.minYears + 1 }, (_, i) => product.minYears + i)
     : [];
 
+  const checklist = useMemo(
+    () => buildChecklist(state.productId, state.applicantType),
+    [state.productId, state.applicantType],
+  );
+
   const onProductChange = (productId: string) =>
     setState((s) => ({ ...s, productId, years: clampYears(productId, s.years) }));
 
   const reset = () => setState(makeDefaultState());
   const downloadPdf = () =>
     generateLoanPdf({
-      member: { name: state.memberName, fileId: state.fileId, product: product?.name ?? '' },
+      member: {
+        name: state.memberName,
+        fileId: state.fileId,
+        product: product?.name ?? '',
+        productId: state.productId,
+      },
+      applicantType: state.applicantType,
       principal: state.principal,
       years: state.years,
       currentShares: state.currentShares,
@@ -112,6 +131,19 @@ export default function LoanCalculator() {
                     {allowedYears.map((y) => (
                       <option key={y} value={y}>
                         {y} {y === 1 ? 'year' : 'years'}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Applicant type" hint="Drives the income documents in the checklist.">
+                  <select
+                    value={state.applicantType}
+                    onChange={(e) => set('applicantType', e.target.value as ApplicantType)}
+                    className={inputCls}
+                  >
+                    {APPLICANT_TYPES.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
                       </option>
                     ))}
                   </select>
@@ -280,6 +312,33 @@ export default function LoanCalculator() {
             spread evenly across the term. <span className="font-medium">PRF</span> is a yearly
             insurance premium (1% of the remaining amount to repay, capped at MUR 4,000): year 1 at
             the start, following years at each year-end. It does not affect the closing balance.
+          </p>
+        </Card>
+
+        {/* Documents checklist preview (also printed on the PDF) */}
+        <Card title="Documents Checklist (for approval)">
+          <p className="text-[11px] text-slate-500 mb-4">
+            Tailored to the selected product and applicant type
+            (<span className="font-medium">{applicantTypeLabel(state.applicantType)}</span>). Included
+            in the downloaded PDF with tick boxes.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
+            {checklist.map((section) => (
+              <div key={section.title}>
+                <p className="text-xs font-semibold text-albarakah-700 mb-2">{section.title}</p>
+                <ul className="space-y-1.5">
+                  {section.items.map((item, i) => (
+                    <li key={i} className="flex gap-2 text-[12px] text-slate-600">
+                      <span className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-slate-300" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[11px] text-slate-400">
+            Condensed from the society’s official SCF document checklist; verify against the current form.
           </p>
         </Card>
       </main>

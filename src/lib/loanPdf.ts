@@ -6,21 +6,13 @@ import autoTable from 'jspdf-autotable';
 import { formatMUR, formatPercent } from './format';
 import { type LoanResult } from './loan';
 import { TEAL, DARK, LIGHT, MARGIN_X, drawHeader, drawCheckbox, safeFilenamePart, pdfSafe } from './pdfCommon';
+import { buildChecklist, applicantTypeLabel, type ApplicantType } from './checklist';
 
 const marginX = MARGIN_X;
 
-/** Default loan-approval document checklist (tailored per product later). */
-export const DEFAULT_CHECKLIST = [
-  'National Identity Card (copy)',
-  'Proof of Address (utility bill, within 3 months)',
-  'Recent Payslip(s)',
-  'Bank Statement(s)',
-  'Completed & signed application form',
-  'Proof of membership / shares account',
-];
-
 export interface LoanPdfPayload {
-  member: { name: string; fileId: string; product: string };
+  member: { name: string; fileId: string; product: string; productId: string };
+  applicantType: ApplicantType;
   principal: number;
   years: number;
   currentShares: number;
@@ -55,6 +47,7 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
       ['Member name', member.name || '—'],
       ['Membership / File ID', member.fileId || '—'],
       ['Financing product', pdfSafe(member.product || '-')],
+      ['Applicant type', applicantTypeLabel(payload.applicantType)],
     ],
     margin: { left: marginX, right: marginX },
   });
@@ -112,30 +105,56 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   // @ts-expect-error runtime property
   y = doc.lastAutoTable.finalY + 18;
 
-  // ---- Documents checklist ----
+  // ---- Documents checklist (per product + applicant type) ----
+  doc.setTextColor(...DARK);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text('Documents Checklist (for approval)', marginX, y);
-  y += 14;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...DARK);
-  for (const item of DEFAULT_CHECKLIST) {
-    if (y > pageHeight - 60) {
+  y += 16;
+
+  const sections = buildChecklist(member.productId, payload.applicantType);
+  const textWidth = pageWidth - marginX * 2 - 18;
+  for (const section of sections) {
+    // Keep a section heading with at least its first item on the page.
+    if (y > pageHeight - 80) {
       doc.addPage();
       y = 50;
     }
-    drawCheckbox(doc, marginX, y - 8, 10);
-    doc.text(pdfSafe(item), marginX + 16, y);
-    y += 18;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...TEAL);
+    doc.text(pdfSafe(section.title), marginX, y);
+    y += 15;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    for (const item of section.items) {
+      const lines = doc.splitTextToSize(pdfSafe(item), textWidth) as string[];
+      const blockHeight = Math.max(14, lines.length * 11 + 4);
+      if (y + blockHeight > pageHeight - 40) {
+        doc.addPage();
+        y = 50;
+      }
+      drawCheckbox(doc, marginX, y - 8, 10);
+      doc.text(lines, marginX + 16, y);
+      y += blockHeight;
+    }
+    y += 6;
   }
+
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
+  if (y > pageHeight - 40) {
+    doc.addPage();
+    y = 50;
+  }
   doc.text(
-    'Indicative list — the required documents will be tailored per financing product.',
+    'Condensed from the society official SCF document checklist; to be verified against the current form.',
     marginX,
     y,
+    { maxWidth: pageWidth - marginX * 2 },
   );
   y += 16;
 
