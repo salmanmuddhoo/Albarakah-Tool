@@ -8,7 +8,8 @@
  *     it is the balance remaining to repay at the start of that year (i.e. the
  *     previous year's end balance).
  *   - In the monthly schedule the PRF is shown at month 1 for year 1, then at
- *     the end of each subsequent year: year K at month K×12 (24, 36, 48, …).
+ *     the start of each subsequent year: year K at month (K − 1)×12 (12, 24,
+ *     36, …).
  *   - The PRF does NOT reduce the loan balance — it is a separate premium.
  *
  * Because the balance remaining to repay after (j−1) whole years of equal
@@ -55,12 +56,12 @@ export function prfDueForYears(totalPayable: number, years: number, yearsPaid: n
 
 /** The schedule month where a given year's PRF is shown. */
 export function prfMonthForYear(year: number): number {
-  return year === 1 ? 1 : year * 12;
+  return year === 1 ? 1 : (year - 1) * 12;
 }
 
 /**
  * Map each year's PRF onto the month of the monthly schedule where it is shown:
- * year 1 → month 1 (beginning); year K ≥ 2 → month K×12 (end of year K).
+ * year 1 → month 1; year K ≥ 2 → month (K − 1)×12 (start of year K).
  * Returns a map of month number → PRF amount for that month.
  */
 export function prfByMonth(totalPayable: number, years: number): Map<number, number> {

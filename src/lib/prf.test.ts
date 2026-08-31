@@ -42,12 +42,12 @@ test('indicative PRF due for years served', () => {
   assert.equal(round(prfDueForYears(TP, N, 8)), 32_000);
 });
 
-test('PRF maps to the right schedule months (year 1 → month 1, then year K → K×12)', () => {
+test('PRF maps to the right schedule months (year 1 → month 1, then year K → (K − 1)×12)', () => {
   const map = prfByMonth(TP, N);
   assert.ok(map.has(1)); // year 1 at the beginning
-  assert.ok(!map.has(12)); // NOT at month 12
-  assert.ok(map.has(24)); // year 2 at month 24
-  assert.ok(map.has(36)); // year 3 at month 36
-  assert.ok(map.has(120)); // year 10 at month 120
+  assert.ok(map.has(12)); // year 2 at month 12
+  assert.ok(map.has(24)); // year 3 at month 24
+  assert.ok(map.has(108)); // year 10 at month 108
+  assert.ok(!map.has(120)); // NOT at month 120
   assert.equal(map.size, 10);
 });
