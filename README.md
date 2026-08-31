@@ -66,7 +66,7 @@ Select a product and term; enter the financing amount. It computes:
 - **PRF (yearly insurance premium)** — shown as a column in the schedule. It is
   1% of the amount remaining to repay at the start of the year, **capped at
   MUR 4,000/year**. In the schedule it appears at **month 1** for year 1, then at
-  **month K×12** for each following year K (month 24, 36, 48, …). It is
+  **month (K − 1)×12** for each following year K (month 12, 24, 36, …). It is
   informational and does **not** change the loan balance. The total PRF over the
   term is shown too.
 - **Full schedule of payments** — month-by-month table whose **opening/closing
