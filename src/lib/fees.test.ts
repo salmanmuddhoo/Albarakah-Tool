@@ -41,12 +41,13 @@ test('amount above the table is flagged', () => {
   assert.equal(calculateFees('HGF', 900_000).aboveTable, false);
 });
 
-test('the processing fee is fixed and the rest are optional', () => {
-  const f = calculateFees('REF', 500_000);
-  const processing = f.lines.find((l) => l.id === FEE_ID.processing);
-  assert.equal(processing?.fixed, true);
+test('the processing fee and the year-1 PRF are fixed; the rest are optional', () => {
+  const f = calculateFees('REF', 500_000, 4_000);
+  assert.equal(f.lines.find((l) => l.id === FEE_ID.processing)?.fixed, true);
+  assert.equal(f.lines.find((l) => l.id === FEE_ID.prfYear1)?.fixed, true);
   // Every other catalogue line is tickable.
-  assert.ok(f.lines.filter((l) => l.id !== FEE_ID.processing).every((l) => !l.fixed));
+  const optional = f.lines.filter((l) => !l.fixed).map((l) => l.id);
+  assert.deepEqual(optional, [FEE_ID.notaryAttendance, FEE_ID.notaryAssessment, FEE_ID.evaluation]);
 });
 
 test('year-1 PRF is added to the fees and to the total', () => {
@@ -72,14 +73,24 @@ test('unticked fees drop out of the total', () => {
     productId: 'REF',
     amount: 500_000,
     firstYearPrf: 4_000,
-    overrides: {
-      [FEE_ID.evaluation]: { included: false },
-      [FEE_ID.prfYear1]: { included: false },
-    },
+    overrides: { [FEE_ID.evaluation]: { included: false } },
   });
-  assert.equal(a.total, 2_750 + 1_000 + 1_000);
+  assert.equal(a.total, 2_750 + 1_000 + 1_000 + 4_000);
   assert.equal(a.lines.find((l) => l.id === FEE_ID.evaluation)?.included, false);
   assert.ok(!a.includedLines.some((l) => l.label.includes('Evaluation')));
+});
+
+test('the year-1 PRF cannot be unticked or edited', () => {
+  const a = applyFees({
+    productId: 'HGF',
+    amount: 1_000_000,
+    firstYearPrf: 4_000,
+    overrides: { [FEE_ID.prfYear1]: { included: false, amount: 1 } },
+  });
+  const prf = a.lines.find((l) => l.id === FEE_ID.prfYear1);
+  assert.equal(prf?.included, true);
+  assert.equal(prf?.amount, 4_000);
+  assert.equal(a.total, 5_000 + 4_000);
 });
 
 test('the fixed processing fee cannot be unticked or edited', () => {

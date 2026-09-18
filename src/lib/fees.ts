@@ -10,9 +10,13 @@
  *    fee, depending on the financing product.
  *  - Year-1 PRF (insurance premium), payable together with the first payment.
  *
- * Every fee other than the processing fee is OPTIONAL: the officer ticks the
- * ones that apply and may edit the amount. Only ticked fees are added to the
- * total. Free-form "Others" lines can be added on top.
+ * Two lines are FIXED — the processing fee and the year-1 PRF. They are always
+ * charged, so they are not offered as choices: they are added to the total and
+ * shown in the summary, but never appear in the fee editor.
+ *
+ * Every other fee is OPTIONAL: the officer ticks the ones that apply and may
+ * edit the amount. Only ticked fees are added to the total. Free-form "Others"
+ * lines can be added on top.
  */
 
 export const GOVT_REG_FEE = 30_000;
@@ -55,7 +59,10 @@ export interface FeeLine {
   label: string;
   amount: number;
   note?: string;
-  /** Fixed fees are always charged and can be neither unticked nor edited. */
+  /**
+   * Fixed fees are always charged: they can be neither unticked nor edited, and
+   * the fee editor does not list them.
+   */
   fixed?: boolean;
   /** Amount is computed from the financing, so it is not hand-editable. */
   computed?: boolean;
@@ -169,6 +176,7 @@ export function calculateFees(
       label: 'PRF (insurance) — year 1',
       amount: prf,
       note: 'payable with the first payment',
+      fixed: true,
       computed: true,
     });
   }
@@ -183,7 +191,7 @@ export function calculateFees(
 
 /** Officer override for one catalogue fee. */
 export interface FeeOverride {
-  /** Ticked in / out of the total. Catalogue fees default to ticked. */
+  /** Ticked in / out of the total. Optional fees default to ticked. */
   included?: boolean;
   /** Hand-edited amount, replacing the default from the table. */
   amount?: number;
@@ -228,8 +236,8 @@ const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFin
 
 /**
  * Resolve the fee catalogue against the officer's ticks, amount edits and
- * "Others" lines. Only ticked lines count towards the total; the fixed
- * processing fee is always ticked at its table amount.
+ * "Others" lines. Only ticked lines count towards the total; the fixed lines
+ * (processing fee, year-1 PRF) are always ticked at their computed amount.
  */
 export function applyFees(input: ApplyFeesInput): AppliedFees {
   const base = calculateFees(input.productId, input.amount, input.firstYearPrf);
