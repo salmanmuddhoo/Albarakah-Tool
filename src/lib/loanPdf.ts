@@ -7,7 +7,7 @@ import { formatMUR, formatPercent } from './format';
 import { type LoanResult } from './loan';
 import { TEAL, DARK, LIGHT, MARGIN_X, drawHeader, drawCheckbox, safeFilenamePart, pdfSafe } from './pdfCommon';
 import { buildChecklist, applicantTypeLabel, type ApplicantType } from './checklist';
-import { calculateFees } from './fees';
+import { applyFees, type AppliedFees } from './fees';
 
 const marginX = MARGIN_X;
 
@@ -19,6 +19,11 @@ export interface LoanPdfPayload {
   currentShares: number;
   shareRatioPercent: number;
   result: LoanResult;
+  /**
+   * The fees as the officer ticked / edited them. Omitted → the standard
+   * catalogue (every fee ticked, year-1 PRF included) is used.
+   */
+  fees?: AppliedFees;
 }
 
 export function buildLoanFilename(fileId: string, name = ''): string {
@@ -107,7 +112,13 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
   y = doc.lastAutoTable.finalY + 16;
 
   // ---- Application fees ----
-  const fees = calculateFees(member.productId, payload.principal);
+  const fees =
+    payload.fees ??
+    applyFees({
+      productId: member.productId,
+      amount: payload.principal,
+      firstYearPrf: result.prfByYear[0]?.prf ?? 0,
+    });
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text('Application Fees', marginX, y);
@@ -118,7 +129,7 @@ export function generateLoanPdf(payload: LoanPdfPayload): void {
     styles: { fontSize: 10, cellPadding: 3, textColor: DARK },
     columnStyles: { 0: { cellWidth: 320 }, 1: { halign: 'right', cellWidth: 'auto' } },
     body: [
-      ...fees.lines.map((l) => [
+      ...fees.includedLines.map((l) => [
         pdfSafe(l.note ? `${l.label} (${l.note})` : l.label),
         formatMUR(l.amount),
       ]),

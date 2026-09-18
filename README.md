@@ -73,11 +73,24 @@ Select a product and term; enter the financing amount. It computes:
   balance is the total amount payable** (capital + profit) reducing to zero, with
   columns for capital, profit, payment and PRF. On screen and in the PDF
   (`<File ID> - Loan Schedule.pdf`).
-- **Application fees** — itemised from the society's table of charges: a
-  processing / administrative fee by financing-amount band, a Rs 30,000 govt.
-  registration fee for financing above Rs 1,000,000, and product-specific fees
-  (completion / notary / visit and an evaluation fee), with an indicative total.
-  Shown on screen and on the PDF. See `src/lib/fees.ts`.
+- **Application fees** (step 4) — itemised from the society's table of charges
+  and payable up front with the first payment:
+  - The **processing / administrative fee** (by financing-amount band) is
+    **fixed**: it applies to every financing product and can be neither unticked
+    nor edited.
+  - **Every other fee is optional.** The officer ticks the ones that apply and
+    can change the amount; the table values are only the defaults (all ticked to
+    start with). Only ticked fees count towards **Total fees**. These are the
+    Rs 30,000 govt. registration fee for financing above Rs 1,000,000, the
+    product-specific fees (completion / notary / visit) and the evaluation fee.
+  - The **year-1 PRF** is included as a fee line, since it falls due with the
+    first payment. Its amount is computed from the financing (1% of the total
+    payable, capped at MUR 4,000), so it can be ticked on or off but not edited.
+  - **Others** — free-form lines (description + amount), as many as needed, for
+    anything not in the table. Each is tickable like the rest.
+
+  The ticked lines and the total are shown in the results panel and printed on
+  the PDF exactly as selected. See `src/lib/fees.ts`.
 - **Applicant type** — Salaried person, Self-Employed, Pensioner or Other. This
   drives the income documents in the checklist.
 - **Documents checklist** — shown on screen and printed on the PDF with tick
@@ -162,13 +175,23 @@ _Project → Settings → Environment Variables_, then redeploy.
 > rely on where the app is hosted (e.g. an internal/protected Vercel deployment)
 > for real access control. The passcode is remembered per browser tab session.
 
+## Branches
+
+- **`main` — production.** This is the branch that gets deployed. Only reviewed,
+  tested work lands here; Vercel's production deployment tracks it.
+- **Feature branches** — everything else. Branch off `main`, open a pull request
+  against `main`, and merge once the build (`npm run build`) and the tests
+  (`npm test`) pass.
+
 ## Deploying to Vercel
 
 The repo includes a `vercel.json` preconfigured for a Vite SPA.
 
 1. Import the repository into Vercel (it auto-detects the Vite framework).
-2. Add the `VITE_STAFF_PASSCODE` environment variable (optional but recommended).
-3. Deploy. Build command `npm run build`, output directory `dist`.
+2. Set **`main` as the production branch** (_Project → Settings → Git →
+   Production Branch_); every other branch then gets a preview deployment.
+3. Add the `VITE_STAFF_PASSCODE` environment variable (optional but recommended).
+4. Deploy. Build command `npm run build`, output directory `dist`.
 
 ## Project structure
 
