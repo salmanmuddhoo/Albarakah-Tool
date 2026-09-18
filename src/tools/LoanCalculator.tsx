@@ -8,7 +8,11 @@ import {
   buildChecklist,
   type ApplicantType,
 } from '../lib/checklist';
-import { calculateFees } from '../lib/fees';
+import {
+  applyFees,
+  type CustomFeeLine,
+  type FeeOverride,
+} from '../lib/fees';
 import { generateLoanPdf } from '../lib/loanPdf';
 import { Card, Field, NumberInput, TextInput, ResultRow, inputCls } from '../components/ui';
 import { Toolbar } from '../components/Toolbar';
@@ -41,6 +45,10 @@ function clampYears(productId: string, years: number): number {
 
 export default function LoanCalculator() {
   const [state, setState] = useState<FormState>(makeDefaultState);
+  /** Officer ticks / hand-edited amounts, keyed by fee id. */
+  const [feeOverrides, setFeeOverrides] = useState<Record<string, FeeOverride>>({});
+  /** Free-form "Others" fee lines. */
+  const [customFees, setCustomFees] = useState<CustomFeeLine[]>([]);
   const result = useMemo(() => calculateLoan(state), [state]);
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
@@ -55,15 +63,40 @@ export default function LoanCalculator() {
     () => buildChecklist(state.productId, state.applicantType),
     [state.productId, state.applicantType],
   );
+  /** Year-1 PRF is payable together with the first payment, so it is a fee. */
+  const firstYearPrf = result.prfByYear[0]?.prf ?? 0;
   const fees = useMemo(
-    () => calculateFees(state.productId, state.principal),
-    [state.productId, state.principal],
+    () =>
+      applyFees({
+        productId: state.productId,
+        amount: state.principal,
+        firstYearPrf,
+        overrides: feeOverrides,
+        customLines: customFees,
+      }),
+    [state.productId, state.principal, firstYearPrf, feeOverrides, customFees],
   );
+
+  const setFeeOverride = (id: string, patch: FeeOverride) =>
+    setFeeOverrides((o) => ({ ...o, [id]: { ...o[id], ...patch } }));
+
+  const addCustomFee = () =>
+    setCustomFees((f) => [
+      ...f,
+      { id: `other-${Date.now()}-${f.length}`, label: '', amount: 0, included: true },
+    ]);
+  const patchCustomFee = (id: string, patch: Partial<CustomFeeLine>) =>
+    setCustomFees((f) => f.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const removeCustomFee = (id: string) => setCustomFees((f) => f.filter((c) => c.id !== id));
 
   const onProductChange = (productId: string) =>
     setState((s) => ({ ...s, productId, years: clampYears(productId, s.years) }));
 
-  const reset = () => setState(makeDefaultState());
+  const reset = () => {
+    setState(makeDefaultState());
+    setFeeOverrides({});
+    setCustomFees([]);
+  };
   const downloadPdf = () =>
     generateLoanPdf({
       member: {
@@ -78,6 +111,7 @@ export default function LoanCalculator() {
       currentShares: state.currentShares,
       shareRatioPercent: state.shareRatioPercent,
       result,
+      fees,
     });
 
   return (
@@ -206,6 +240,126 @@ export default function LoanCalculator() {
                 </Field>
               </div>
             </Card>
+
+            <Card title="Application Fees" step="4">
+              <p className="text-[11px] text-slate-500 mb-3">
+                The processing fee is fixed and always charged. Every other fee is optional —
+                tick the ones that apply to this file and adjust the amount if needed. Only
+                ticked fees are added to the total.
+              </p>
+
+              <div className="divide-y divide-slate-100">
+                {fees.lines.map((line) => (
+                  <div key={line.id} className="flex items-center gap-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={line.included}
+                      disabled={line.fixed}
+                      onChange={(e) => setFeeOverride(line.id, { included: e.target.checked })}
+                      aria-label={line.label}
+                      className="h-4 w-4 shrink-0 rounded border-slate-300 text-albarakah-600 focus:ring-albarakah-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-[13px] ${
+                          line.included ? 'text-slate-700' : 'text-slate-400 line-through'
+                        }`}
+                      >
+                        {line.label}
+                        {line.fixed && (
+                          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 no-underline">
+                            fixed
+                          </span>
+                        )}
+                      </p>
+                      {line.note && <p className="text-[11px] text-slate-400">{line.note}</p>}
+                    </div>
+                    <div className="w-32 shrink-0">
+                      {line.fixed || line.computed ? (
+                        <p className="rounded-lg bg-slate-100 px-3 py-2 text-right text-sm font-semibold tabular-nums text-slate-500">
+                          {formatMUR(line.amount, false)}
+                        </p>
+                      ) : (
+                        <NumberInput
+                          value={line.amount}
+                          onChange={(n) => setFeeOverride(line.id, { amount: n })}
+                          min={0}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Free-form "Others" lines */}
+              <div className="mt-4 border-t border-slate-200 pt-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-600">Others</p>
+                  <button
+                    type="button"
+                    onClick={addCustomFee}
+                    className="rounded-lg border border-albarakah-500 px-3 py-1 text-xs font-semibold text-albarakah-700 hover:bg-albarakah-50 transition"
+                  >
+                    + Add fee line
+                  </button>
+                </div>
+                {fees.customLines.length === 0 ? (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    No other fees. Use “Add fee line” for anything not listed above.
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {fees.customLines.map((c) => (
+                      <div key={c.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={c.included}
+                          onChange={(e) => patchCustomFee(c.id, { included: e.target.checked })}
+                          aria-label="Include this fee in the total"
+                          className="h-4 w-4 shrink-0 rounded border-slate-300 text-albarakah-600 focus:ring-albarakah-500"
+                        />
+                        <TextInput
+                          value={c.label}
+                          onChange={(e) => patchCustomFee(c.id, { label: e.target.value })}
+                          placeholder="Fee description"
+                          aria-label="Fee description"
+                          className="flex-1 min-w-0"
+                        />
+                        <div className="w-28 shrink-0">
+                          <NumberInput
+                            value={c.amount}
+                            onChange={(n) => patchCustomFee(c.id, { amount: n })}
+                            min={0}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeCustomFee(c.id)}
+                          aria-label={`Remove ${c.label || 'fee line'}`}
+                          title="Remove this fee line"
+                          className="shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-400 hover:border-red-300 hover:text-red-500 transition"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-baseline justify-between border-t border-slate-200 pt-3">
+                <span className="text-sm font-semibold text-slate-800">Total fees</span>
+                <span className="text-base font-bold text-albarakah-700 tabular-nums">
+                  {formatMUR(fees.total)}
+                </span>
+              </div>
+              {fees.aboveTable && (
+                <p className="mt-2 text-[11px] text-amber-600">
+                  ⚠ Financing above Rs 1,500,000 is beyond the published fee table — confirm the
+                  processing fee with Head Office.
+                </p>
+              )}
+            </Card>
           </div>
 
           {/* Results */}
@@ -268,10 +422,10 @@ export default function LoanCalculator() {
                 />
               </div>
 
-              {/* Application fees */}
+              {/* Application fees — ticked lines only (mirrors the PDF) */}
               <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
                 <p className="text-xs font-semibold text-slate-600 mb-2">Application fees</p>
-                {fees.lines.map((line, i) => (
+                {fees.includedLines.map((line, i) => (
                   <ResultRow
                     key={i}
                     label={line.note ? `${line.label} (${line.note})` : line.label}
@@ -284,6 +438,9 @@ export default function LoanCalculator() {
                     {formatMUR(fees.total)}
                   </span>
                 </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  Payable up front with the first payment. Edit the list in step 4.
+                </p>
                 {fees.aboveTable && (
                   <p className="mt-2 text-[11px] text-amber-600">
                     ⚠ Financing above Rs 1,500,000 is beyond the published fee table — confirm the
