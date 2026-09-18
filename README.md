@@ -75,17 +75,16 @@ Select a product and term; enter the financing amount. It computes:
   (`<File ID> - Loan Schedule.pdf`).
 - **Application fees** (step 4) — itemised from the society's table of charges
   and payable up front with the first payment:
-  - The **processing / administrative fee** (by financing-amount band) is
-    **fixed**: it applies to every financing product and can be neither unticked
-    nor edited.
+  - Two fees are **fixed** — always charged, so the editor does not list them at
+    all; they are added automatically and appear in the summary: the
+    **processing / administrative fee** (by financing-amount band, applies to
+    every financing product) and the **year-1 PRF**, which falls due with the
+    first payment (1% of the total payable, capped at MUR 4,000).
   - **Every other fee is optional.** The officer ticks the ones that apply and
     can change the amount; the table values are only the defaults (all ticked to
     start with). Only ticked fees count towards **Total fees**. These are the
     Rs 30,000 govt. registration fee for financing above Rs 1,000,000, the
     product-specific fees (completion / notary / visit) and the evaluation fee.
-  - The **year-1 PRF** is included as a fee line, since it falls due with the
-    first payment. Its amount is computed from the financing (1% of the total
-    payable, capped at MUR 4,000), so it can be ticked on or off but not edited.
   - **Others** — free-form lines (description + amount), as many as needed, for
     anything not in the table. Each is tickable like the rest.
 
